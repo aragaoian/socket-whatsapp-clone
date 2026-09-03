@@ -1,9 +1,10 @@
 [project]
-name = "grcp-whatsapp-clone"
+name = "socket-whatsapp-clone"
 version = "0.1.0"
-description = "Whatsapp clone using gRCP"
+description = "Whatsapp clone using socket"
 requires-python = ">=3.10"
 dependencies = [
     "grpcio>=1.83.0",
     "grpcio-tools>=1.83.0",
+    "ruff>=0.16.6",
 ]

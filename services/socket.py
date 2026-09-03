@@ -21,7 +21,11 @@ class Socket:
     def listen(s: socket.socket, process_message: callable) -> None:
         s.listen()
         while True:
-            conn, _ = s.accept()
+            try:
+                conn, _ = s.accept()
+            except OSError:
+                break
+
             with conn:
                 data = conn.recv(BUFFER_SIZE)
                 if data:
