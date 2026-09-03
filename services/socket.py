@@ -10,12 +10,16 @@ class Socket:
     def __init__(self):
         pass
 
-    def server(port: int, process_message: callable) -> None:
+    @staticmethod
+    def server(port: int) -> socket.socket:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, READABLE_BUFFER)
         s.bind((DEFAULT_HOST, port))
-        s.listen()
+        return s
 
+    @staticmethod
+    def listen(s: socket.socket, process_message: callable) -> None:
+        s.listen()
         while True:
             conn, _ = s.accept()
             with conn:
@@ -23,6 +27,7 @@ class Socket:
                 if data:
                     process_message(data)
 
+    @staticmethod
     def send(host: str, port: int, payload: dict) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((host, port))
