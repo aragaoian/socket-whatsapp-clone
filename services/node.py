@@ -1,43 +1,51 @@
 import json
+import shutil
 import signal
+import sys
 import time
+from dataclasses import asdict
+from datetime import datetime
 from queue import Queue
 from threading import Thread
 
-from services.socket import Socket
-import shutil
-import sys
-
 from models.node_dto import NodeDto
-from dataclasses import asdict
+from services.socket import Socket
+from utils.commands import command_handler
 
 # Códigos de controle ANSI
 CLEAR_SCREEN = "\033[2J"
-RESET_SCROLL  = "\033[r"
-SAVE_CURSOR   = "\033[s"
+RESET_SCROLL = "\033[r"
+SAVE_CURSOR = "\033[s"
 RESTORE_CURSOR = "\033[u"
+
 
 def setup_terminal():
     """Configura o terminal dividindo-o em uma zona de rolagem e uma linha de prompt fixa."""
     # Obtém o tamanho atual da tela (número de linhas)
     linhas = shutil.get_terminal_size().lines
-    
+
     sys.stdout.write(CLEAR_SCREEN)
     # Define a margem de rolagem: da linha 1 até a penúltima linha (linhas - 1)
-    sys.stdout.write(f"\033[1;{linhas-1}r")
+    sys.stdout.write(f"\033[1;{linhas - 1}r")
     # Move o cursor para a última linha onde o prompt ficará fixo
     sys.stdout.write(f"\033[{linhas};1H")
     sys.stdout.flush()
 
+
 def print_message(mensagem):
     """Imprime uma mensagem na zona de rolagem superior de forma limpa."""
     linhas = shutil.get_terminal_size().lines
-    
-    sys.stdout.write(SAVE_CURSOR)      # Salva onde o usuário está digitando
-    sys.stdout.write(f"\033[{linhas-1};1H\n") # Vai para o final da zona de rolagem e empurra para cima
-    sys.stdout.write(f"{mensagem}\r") # Imprime o novo log
-    sys.stdout.write(RESTORE_CURSOR)   # Devolve o cursor para o prompt exatamente onde estava
+
+    sys.stdout.write(SAVE_CURSOR)  # Salva onde o usuário está digitando
+    sys.stdout.write(
+        f"\033[{linhas - 1};1H\n"
+    )  # Vai para o final da zona de rolagem e empurra para cima
+    sys.stdout.write(f"{mensagem}\r")  # Imprime o novo log
+    sys.stdout.write(
+        RESTORE_CURSOR
+    )  # Devolve o cursor para o prompt exatamente onde estava
     sys.stdout.flush()
+
 
 class Node:
     def __init__(
@@ -45,7 +53,7 @@ class Node:
         id: int,
         host: str,
         port: int,
-        nodes: dict,
+        nodes: list[dict],
         leader_id: int,
         lamport_clock: int,
         vector_clock: list,
@@ -62,7 +70,6 @@ class Node:
         self.global_delivery = None
         self.tcp_server = None
         self.messages = []
-        self.ui_queue = Queue()
         self.session = None
 
     def close(self) -> None:
@@ -76,9 +83,9 @@ class Node:
                 self.tcp_server.close()
                 self.tcp_server = None
 
-
     def start(self) -> None:
         setup_terminal()
+
         self.tcp_server = Socket.server(self.port)
 
         def terminate(*_args) -> None:
@@ -104,43 +111,32 @@ class Node:
         for thread in threads:
             thread.start()
 
-
         self.tui()
-
-
-
 
         # TODO
         # 1. thread heartbeat []
         # 2. thread message processing []
-
 
     def tui(self) -> None:
         linhas = shutil.get_terminal_size().lines
         print_message(f"PORTA {self.port}")
         while True:
             # Garante que o cursor do input comece sempre na última linha
-            sys.stdout.write(f"\033[{linhas};1H\033[2K") # Vai para a última linha e limpa ela
+            sys.stdout.write(
+                f"\033[{linhas};1H\033[2K"
+            )  # Vai para a última linha e limpa ela
             sys.stdout.flush()
-            
+
             try:
                 # O input do usuário fica isolado na última linha do terminal
                 comando = input("1> ")
-                
-                if comando.strip().lower() == "sair":
-                    # Restaura o comportamento padrão do terminal antes de fechar
-                    sys.stdout.write(RESET_SCROLL)
-                    print("\nPrograma encerrado.")
+
+                if not command_handler(self.id, self.nodes, comando):
                     break
-                    
-                if comando.split(" ")[0] == "send":
-                    Socket.send("127.0.0.1", 5002, NodeDto(type="MESSAGE", message=comando.split(" ")[1], origin=self.io))
-                    pass
-                    
+
             except (KeyboardInterrupt, EOFError):
                 sys.stdout.write(RESET_SCROLL)
                 break
-
 
     def handle_message(self, data: bytes) -> None:
         if not data:
@@ -148,23 +144,18 @@ class Node:
 
         try:
             payload = NodeDto(**json.loads(data.decode("utf-8")))
-            if(payload.type == "MESSAGE"):
-                print_message(payload.message)
+            if payload.type == "MESSAGE":
+                print_message(
+                    f"{datetime.now()} - Node {payload.origin}: {payload.message}"
+                )
         except (UnicodeDecodeError, json.JSONDecodeError):
             payload = "Erro ao decodificar mensagem."
 
-        self.ui_queue.put(payload)
-
     def heartbeat(self) -> None:
-        if(self.port == 5002):
+        if self.port == 5002:
             return
         time.sleep(2)
         while True:
-            dto = NodeDto(
-                message="ack",  
-                origin=self.id,
-                type="HEARTBEAT"
-            )
+            dto = NodeDto(message="ack", origin=self.id, type="HEARTBEAT")
             Socket.send("127.0.0.1", 5002, asdict(dto))
             time.sleep(5)
-        raise NotImplementedError

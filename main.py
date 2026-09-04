@@ -1,8 +1,7 @@
-import os
-import time
 import argparse
-import subprocess
 import atexit
+import subprocess
+import time
 
 processes: list[subprocess.Popen] = []
 
