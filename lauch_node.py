@@ -7,19 +7,19 @@ from utils.read_config import read_config_file
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--id", type=int, required=True)
+parser.add_argument("--count", type=int, required=True)
 args = parser.parse_args()
 
-nodes = read_config_file(CONFIG_FILE_PATH)
+nodes = read_config_file(CONFIG_FILE_PATH, args.count)
 node_config = find_node_config(args.id, nodes)
 
 node = Node(
-    id=node_config["id"],
-    host=node_config["host"],
-    port=node_config["port"],
+    id=node_config.id,
+    host=node_config.host,
+    port=node_config.port,
     nodes=nodes,
     leader_id=1,
-    lamport_clock=0,
-    vector_clock=[0, 0, 0],
+    vector_clock=[0] * args.count,
 )
 
 node.start()

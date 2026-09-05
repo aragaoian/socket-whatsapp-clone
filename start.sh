@@ -88,7 +88,7 @@ fi
 
 for ((id = 1; id <= count; id++)); do
     setsid konsole --separate --workdir "$project_dir" \
-        -e uv run lauch_node.py --id "$id" &
+        -e uv run lauch_node.py --id "$id" --count "$count"&
     terminal_pids+=("$!")
 done
 

@@ -5,46 +5,15 @@ import sys
 import time
 from dataclasses import asdict
 from datetime import datetime
-from queue import Queue
-from threading import Thread
+from threading import Lock, Thread
 
+from enums.commands import Commands
+from models.node_config import NodeConfig
 from models.node_dto import NodeDto
 from services.socket import Socket
-from utils.commands import command_handler
-
-# Códigos de controle ANSI
-CLEAR_SCREEN = "\033[2J"
-RESET_SCROLL = "\033[r"
-SAVE_CURSOR = "\033[s"
-RESTORE_CURSOR = "\033[u"
-
-
-def setup_terminal():
-    """Configura o terminal dividindo-o em uma zona de rolagem e uma linha de prompt fixa."""
-    # Obtém o tamanho atual da tela (número de linhas)
-    linhas = shutil.get_terminal_size().lines
-
-    sys.stdout.write(CLEAR_SCREEN)
-    # Define a margem de rolagem: da linha 1 até a penúltima linha (linhas - 1)
-    sys.stdout.write(f"\033[1;{linhas - 1}r")
-    # Move o cursor para a última linha onde o prompt ficará fixo
-    sys.stdout.write(f"\033[{linhas};1H")
-    sys.stdout.flush()
-
-
-def print_message(mensagem):
-    """Imprime uma mensagem na zona de rolagem superior de forma limpa."""
-    linhas = shutil.get_terminal_size().lines
-
-    sys.stdout.write(SAVE_CURSOR)  # Salva onde o usuário está digitando
-    sys.stdout.write(
-        f"\033[{linhas - 1};1H\n"
-    )  # Vai para o final da zona de rolagem e empurra para cima
-    sys.stdout.write(f"{mensagem}\r")  # Imprime o novo log
-    sys.stdout.write(
-        RESTORE_CURSOR
-    )  # Devolve o cursor para o prompt exatamente onde estava
-    sys.stdout.flush()
+from services.terminal import RESET_SCROLL, print_message, setup_terminal
+from utils.find_node import find_node_config
+from utils.formatting import format_message
 
 
 class Node:
@@ -53,24 +22,18 @@ class Node:
         id: int,
         host: str,
         port: int,
-        nodes: list[dict],
+        nodes: list[NodeConfig],
         leader_id: int,
-        lamport_clock: int,
-        vector_clock: list,
-        delivery_node: "Node | None" = None,
+        vector_clock: list[int],
     ):
         self.id = id
         self.host = host
         self.port = port
         self.nodes = nodes
         self.leader_id = leader_id
-        self.lamport_clock = lamport_clock
         self.vector_clock = vector_clock
-        self.delivery_node = delivery_node
-        self.global_delivery = None
+        self.vector_clock_lock = Lock()
         self.tcp_server = None
-        self.messages = []
-        self.session = None
 
     def close(self) -> None:
 
@@ -102,10 +65,10 @@ class Node:
                 args=(self.tcp_server, self.handle_message),
                 daemon=True,
             ),
-            Thread(
-                target=self.heartbeat,
-                daemon=True,
-            ),
+            # Thread(
+            #     target=self.heartbeat,
+            #     daemon=True,
+            # ),
         ]
 
         for thread in threads:
@@ -113,30 +76,70 @@ class Node:
 
         self.tui()
 
-        # TODO
-        # 1. thread heartbeat []
-        # 2. thread message processing []
-
     def tui(self) -> None:
         linhas = shutil.get_terminal_size().lines
         print_message(f"PORTA {self.port}")
+
         while True:
-            # Garante que o cursor do input comece sempre na última linha
-            sys.stdout.write(
-                f"\033[{linhas};1H\033[2K"
-            )  # Vai para a última linha e limpa ela
+            sys.stdout.write(f"\033[{linhas};1H\033[2K")
             sys.stdout.flush()
 
             try:
-                # O input do usuário fica isolado na última linha do terminal
                 comando = input("1> ")
 
-                if not command_handler(self.id, self.nodes, comando):
+                if not self.handle_command(comando):
                     break
 
             except (KeyboardInterrupt, EOFError):
                 sys.stdout.write(RESET_SCROLL)
                 break
+
+    def handle_command(self, command_str: str) -> bool:
+        command = command_str.split(" ")[0].lower()
+        now_ = datetime.now().strftime("%H:%M:%S")
+
+        if command == Commands.SEND.value:
+            destination_node_id = int(command_str.split()[1])
+            message = " ".join(command_str.split()[2:])
+            node_info = find_node_config(destination_node_id, self.nodes)
+
+            self.vector_clock[self.id - 1] += 1
+
+            dto = NodeDto(
+                type="MESSAGE",
+                origin=self.id,
+                timestamp=now_,
+                vector_clock=self.vector_clock,
+                message=message,
+            )
+            Socket.send(node_info.host, node_info.port, asdict(dto))
+            return True
+
+        if command == Commands.SEND_ALL.value:
+            message = " ".join(command_str.split()[1:])
+            for node_info in self.nodes:
+                if node_info.id == self.id:
+                    continue
+
+                self.vector_clock[self.id - 1] += 1
+
+                dto = NodeDto(
+                    type="MESSAGE",
+                    origin=self.id,
+                    timestamp=now_,
+                    vector_clock=self.vector_clock,
+                    message=message,
+                )
+                Socket.send(node_info.host, node_info.port, asdict(dto))
+                time.sleep(1)
+            return True
+
+        if command == Commands.EXIT.value:
+            sys.stdout.write(RESET_SCROLL)
+            print("\nPrograma encerrado.")
+            return False
+
+        return True
 
     def handle_message(self, data: bytes) -> None:
         if not data:
@@ -144,18 +147,31 @@ class Node:
 
         try:
             payload = NodeDto(**json.loads(data.decode("utf-8")))
-            if payload.type == "MESSAGE":
-                print_message(
-                    f"{datetime.now()} - Node {payload.origin}: {payload.message}"
-                )
+            self.handle_vector_clock(payload.vector_clock)
+            message = format_message(payload)
+            print_message(message)
         except (UnicodeDecodeError, json.JSONDecodeError):
             payload = "Erro ao decodificar mensagem."
 
+    def handle_vector_clock(self, payload_vector_clock: list[int]) -> None:
+        # NOTE
+        # Não precisa criar o delivery buffer porque vamos usar o
+        # algoritmo do bully para ordenação.
+
+        # TODO
+        # tem algo relacionado a esse lock que ta crashando o node
+        with self.vector_clock_lock:
+            for i, received_value in enumerate(payload_vector_clock):
+                self.vector_clock[i] = max(self.vector_clock[i], received_value)
+
+            self.vector_clock[self.id - 1] += 1
+
     def heartbeat(self) -> None:
-        if self.port == 5002:
-            return
         time.sleep(2)
         while True:
-            dto = NodeDto(message="ack", origin=self.id, type="HEARTBEAT")
-            Socket.send("127.0.0.1", 5002, asdict(dto))
-            time.sleep(5)
+            for node in self.nodes:
+                if node.id == self.id:
+                    continue
+                dto = NodeDto(message="ACK", origin=self.id, type="HEARTBEAT")
+                Socket.send(node.host, node.port, asdict(dto))
+                time.sleep(5)
