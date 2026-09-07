@@ -16,6 +16,7 @@ def read_config_file(file_path: str, active_nodes_count: int) -> list[NodeConfig
                         id=int(node["id"]),
                         port=int(node["port"]),
                         host=str(node["host"]),
+                        is_active=True,
                     )
                 )
     return active_nodes_list

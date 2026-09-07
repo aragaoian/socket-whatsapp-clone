@@ -1,0 +1,148 @@
+
+\documentclass[oneside]{diretrizes}            % Imprimir apenas frente
+%\documentclass[doubleside]{diretrizes}        % Imprimir frente e verso
+% Importações de pacotes
+\usepackage[alf, abnt-emphasize=bf, recuo=0cm, abnt-etal-cite=2, abnt-etal-list=0]{abntex2cite}  % Citações padrão ABNT
+\usepackage[utf8]{inputenc}                         % Acentuação direta
+\usepackage[T1]{fontenc}                            % Codificação da fonte em 8 bits
+\usepackage{graphicx}                               % Inserir figuras
+\usepackage{amsfonts, amssymb, amsmath}             % Fonte e símbolos matemáticos
+\usepackage{booktabs}                               % Comandos para tabelas
+\usepackage{verbatim}                               % Texto é interpretado como escrito no documento
+\usepackage{multirow, array}                        % Múltiplas linhas e colunas em tabelas
+\usepackage{indentfirst}                            % Endenta o primeiro parágrafo de cada seção.
+\usepackage{microtype}                              % Para melhorias de justificação?
+\usepackage[algoruled, portuguese]{algorithm2e}     % Escrever algoritmos
+\usepackage{float}                                  % Utilizado para criação de floats
+\usepackage{times}                                  % Usa a fonte Times
+\usepackage{color}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{minted}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{black}{rgb}{0,0,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{lightgray}{rgb}{0.8,0.8,0.8}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\renewcommand{\lstlistingname}{Código} % Mudar o nome de "Listing"
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\lstdefinestyle{bash}{
+    backgroundcolor=\color{black},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{codegray},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{lightgray},
+    basicstyle=\ttfamily\footnotesize\color{white},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    xleftmargin=0pt
+}
+
+
+\lstset{style=mystyle}
+
+% Inclui o preâmbulo do documento
+\include{01-elementos-pre-textuais/preambulo}
+
+\usepackage[a4paper, top=3.0cm, bottom=2.0cm, left=3.0cm, right=2.0cm]{geometry} %teste margem
+%\usepackage{titlesec} %teste margem
+
+\newcommand{\blue}[1]{\textcolor{blue}{#1}} % proposed
+\newcommand{\red}[1]{\textcolor{red}{#1}} % to be removed
+\newcommand{\green}[1]{\textcolor{green}{#1}} % to be discussed?
+\newcommand{\yellow}[1]{\textcolor{yellow}{#1}} % ????
+\newcommand{\magenta}[1]{\textcolor{magenta}{#1}} % warning - requires attention
+
+% Define as cores dos links e informações do PDF
+\makeatletter
+\hypersetup{
+    portuguese,
+    colorlinks,
+    linkcolor=black,
+    citecolor=black,
+    filecolor=black,
+    urlcolor=black,
+    breaklinks=true,
+    pdftitle={\@title},
+    pdfauthor={\@author},
+    pdfsubject={\imprimirpreambulo},
+    pdfkeywords={abnt, latex, abntex, abntex2}
+}
+\makeatother
+
+% Redefinição de labels
+\renewcommand{\algorithmautorefname}{Algoritmo}
+\def\equationautorefname~#1\null{Equa\c c\~ao~(#1)\null}
+
+% Cria o índice remissivo
+\makeindex
+
+% Início do documento
+\begin{document}
+
+    % Retira espaço extra obsoleto entre as frases.
+    \frenchspacing
+    % Elementos pré textuais
+    \pretextual
+    \include{./01-elementos-pre-textuais/capa}              % Capa
+    \include{./01-elementos-pre-textuais/folhaRosto}        % Folha de rosto
+    \include{./01-elementos-pre-textuais/folhaAprovacao}    % Folha de aprovação
+    %\include{./01-elementos-pre-textuais/folhaCatalografica}
+    
+    \include{./01-elementos-pre-textuais/dedicatoria}       % Dedicatória
+    \include{./01-elementos-pre-textuais/agradecimentos}    % Agradecimentos
+    \include{./01-elementos-pre-textuais/epigrafe}          % Epígrafe
+    \include{./01-elementos-pre-textuais/resumoPt}          % Resumo na língua vernácula
+    \include{./01-elementos-pre-textuais/resumoEn}          % Resumo em língua estrangeira
+    \include{./01-elementos-pre-textuais/listaFiguras}      % Lista de figuras
+    \include{./01-elementos-pre-textuais/listaTabelas}      % Lista de tabelas
+    \include{./01-elementos-pre-textuais/listaQuadros}      % Lista de quadros
+    \include{./01-elementos-pre-textuais/listaSiglas}       % Lista de abreviaturas e siglas
+    %\include{./01-elementos-pre-textuais/listaSimbolos}     % Lista de símbolos
+    \sumario
+\begin{OnehalfSpacing}
+
+    % Elementos textuais
+    \textual
+    \include{./02-elementos-textuais/introducao}            % Introdução
+
+    
+\end{OnehalfSpacing}
+    % Elementos pós textuais
+    \postextual
+    \include{./03-elementos-pos-textuais/referencias}       % Referências
+    \begin{OnehalfSpacing}
+
+    \end{OnehalfSpacing}
+    %\printindex                                             % Índice remissivo
+
+\end{document}

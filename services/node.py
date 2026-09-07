@@ -7,8 +7,10 @@ from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from threading import Lock, Thread
 
+from consts.config import HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT, MAX_MISSED_ACKS
 from enums.commands import Commands
 from enums.message_types import MessageType
+from models.heartbeat_control import HeartbeatControl
 from models.node_config import NodeConfig
 from models.node_dto import NodeDto
 from services.socket import Socket
@@ -18,6 +20,7 @@ from utils.formatting import (
     format_global_message,
     format_local_message,
     format_message,
+    format_node_list,
 )
 
 
@@ -47,8 +50,15 @@ class Node:
         self.local_history: list[NodeDto] = []
         self.global_history: list[NodeDto] = []
         self.delivery_buffer: dict[int, NodeDto] = {}
+        self.last_seen_control: dict[int, HeartbeatControl] = {
+            node.id: HeartbeatControl(timestamp=time.monotonic())
+            for node in self.nodes
+            if node.id != self.id
+        }
+        self.heartbeat_lock = Lock()
+        self.election_lock = Lock()
+        self.election_in_progress = False
         self.tcp_server = None
-        
 
     def close(self) -> None:
 
@@ -69,8 +79,6 @@ class Node:
         def terminate(*_args) -> None:
             self.close()
 
-        # NOTE
-        # Close all windows if program is terminated
         signal.signal(signal.SIGINT, terminate)
         signal.signal(signal.SIGTERM, terminate)
 
@@ -80,10 +88,14 @@ class Node:
                 args=(self.tcp_server, self.handle_message),
                 daemon=True,
             ),
-            # Thread(
-            #     target=self.heartbeat,
-            #     daemon=True,
-            # ),
+            Thread(
+                target=self.heartbeat,
+                daemon=True,
+            ),
+            Thread(
+                target=self.health_check,
+                daemon=True,
+            ),
         ]
 
         for thread in threads:
@@ -179,9 +191,14 @@ class Node:
             self.show_global_history()
             return True
 
+        if command == Commands.LIST.value:
+            print_message(format_node_list(self.nodes))
+            return True
+
         if command == Commands.HELP.value:
             print_message(
-                "Comandos: send <id> <msg>, sendall <msg>, local, global, status, exit"
+                "Comandos: send <id> <msg>, sendall <msg>, local, global, status, "
+                "list, exit"
             )
             return True
 
@@ -237,21 +254,28 @@ class Node:
             print_message(f"Líder {self.leader_id} não encontrado.")
             return
         if not self.send_to_node(leader, payload):
-            print_message(f"Líder não acessível, reelegendo líder.")
-            self.bully_election()
+            print_message("Líder não acessível, reelegendo líder.")
+            self.update_node_status(self.leader_id)
+            self.start_election()
+
+    def start_election(self) -> None:
+        with self.election_lock:
+            if self.election_in_progress:
+                return
+            self.election_in_progress = True
+
+        Thread(target=self.bully_election, daemon=True).start()
 
     def bully_election(self) -> None:
         higher_nodes = sorted(
-            (node for node in self.nodes if node.id > self.id),
+            (node for node in self.nodes if node.id > self.id and node.is_active),
             key=lambda node: node.id,
         )
 
         election_message = NodeDto(
             type=MessageType.ELECTION.value,
             origin=self.id,
-            timestamp=datetime.now(timezone.utc)
-            .astimezone()
-            .strftime("%H:%M:%S"),
+            timestamp=datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S"),
             vector_clock=self.vector_clock.copy(),
             message="ELECTION",
         )
@@ -262,33 +286,36 @@ class Node:
             if self.send_to_node(node, election_message):
                 higher_node_answered = True
                 print_message(
-                    f"[ELEIÇÃO] Node {node.id} está ativo; "
-                    "ele continuará a eleição."
+                    f"[ELEIÇÃO] Node {node.id} está ativo; ele continuará a eleição."
                 )
 
         if higher_node_answered:
-            print_message(
-                "[ELEIÇÃO] Aguardando anúncio do novo coordenador."
-            )
+            print_message("[ELEIÇÃO] Aguardando anúncio do novo coordenador.")
             return
-        
+
         self.leader_id = self.id
         print_message(f"[COORDENADOR] Node {self.id} é o novo líder.")
 
         coordinator_message = NodeDto(
             type=MessageType.COORDINATOR.value,
             origin=self.id,
-            timestamp=datetime.now(timezone.utc)
-            .astimezone()
-            .strftime("%H:%M:%S"),
+            timestamp=datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S"),
             vector_clock=self.vector_clock.copy(),
             message="COORDINATOR",
         )
 
         for node in self.nodes:
-            if node.id != self.id:
+            if node.id != self.id and node.is_active:
                 self.send_to_node(node, coordinator_message)
-        pass
+
+        with self.election_lock:
+            self.election_in_progress = False
+
+    def update_node_status(self, id: int) -> None:
+        for node in self.nodes:
+            if node.id != id:
+                continue
+            node.is_active = False
 
     def sequence_group_message(self, payload: NodeDto) -> None:
         if self.id != self.leader_id:
@@ -365,24 +392,42 @@ class Node:
                     return
                 self.handle_vector_clock(payload.vector_clock)
                 self.sequence_group_message(payload)
+
             elif payload.type == MessageType.ORDERED_GROUP_MESSAGE.value:
                 self.receive_ordered_message(payload)
-            
+
                 self.handle_vector_clock(payload.vector_clock)
                 print_message(f"[PRIVADA] {format_message(payload)}")
+
             elif payload.type == MessageType.ELECTION.value:
                 print_message(
                     f"[ELEIÇÃO] Solicitação recebida do Node {payload.origin}."
                 )
 
                 if self.id > payload.origin:
-                    Thread(target=self.bully_election, daemon=True).start()
+                    self.start_election()
 
             elif payload.type == MessageType.COORDINATOR.value:
+                self.update_node_status(self.leader_id)
                 self.leader_id = payload.origin
-                print_message(
-                    f"[COORDENADOR] Node {payload.origin} é o novo líder."
-                )
+                with self.election_lock:
+                    self.election_in_progress = False
+                print_message(f"[COORDENADOR] Node {payload.origin} é o novo líder.")
+
+            elif payload.type == MessageType.HEARTBEAT.value:
+                self.handle_heartbeat(payload.origin)
+
+            elif payload.type == MessageType.HEARTBEAT_ACK.value:
+                if self.id == self.leader_id:
+                    with self.heartbeat_lock:
+                        control = self.last_seen_control[payload.origin]
+                        control.missed_acks = 0
+                        control.timestamp = time.monotonic()
+
+            elif payload.type == MessageType.UPDATE_LIST.value:
+                inactivated_node = int(payload.message)
+                self.update_node_status(inactivated_node)
+                print_message(f"[ATUALIZAÇÃO] Node {inactivated_node} foi inativado")
 
         except (TypeError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
             print_message("Erro ao decodificar mensagem.")
@@ -400,19 +445,108 @@ class Node:
     def heartbeat(self) -> None:
         time.sleep(2)
         while True:
-            for node in self.nodes:
-                if node.id == self.id:
-                    continue
-                with self.vector_clock_lock:
-                    vector_clock = self.vector_clock.copy()
-                dto = NodeDto(
-                    message="ACK",
-                    origin=self.id,
-                    type=MessageType.HEARTBEAT.value,
-                    timestamp=datetime.now(timezone.utc)
-                    .astimezone()
-                    .strftime("%H:%M:%S"),
-                    vector_clock=vector_clock,
-                )
-                self.send_to_node(node, dto)
-                time.sleep(5)
+            if self.id == self.leader_id:
+                for node in self.nodes:
+                    if node.id == self.leader_id or not node.is_active:
+                        continue
+
+                    with self.vector_clock_lock:
+                        vector_clock = self.vector_clock.copy()
+                    dto = NodeDto(
+                        origin=self.id,
+                        destination=node.id,
+                        type=MessageType.HEARTBEAT.value,
+                        timestamp=datetime.now(timezone.utc)
+                        .astimezone()
+                        .strftime("%H:%M:%S"),
+                        vector_clock=vector_clock,
+                    )
+                    self.send_to_node(node, dto)
+
+            time.sleep(HEARTBEAT_INTERVAL)
+
+    def handle_heartbeat(self, leader_id: int) -> None:
+        if self.id == self.leader_id:
+            return
+
+        if leader_id != self.leader_id:
+            return
+
+        with self.heartbeat_lock:
+            control = self.last_seen_control.get(leader_id)
+            if control is not None:
+                control.timestamp = time.monotonic()
+                control.missed_acks = 0
+
+        with self.vector_clock_lock:
+            vector_clock = self.vector_clock.copy()
+        dto = NodeDto(
+            origin=self.id,
+            destination=self.leader_id,
+            type=MessageType.HEARTBEAT_ACK.value,
+            timestamp=datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S"),
+            vector_clock=vector_clock,
+        )
+
+        leader = find_node_config(leader_id, self.nodes)
+        if leader is not None:
+            self.send_to_node(leader, dto)
+
+    def health_check(self) -> None:
+        while True:
+            if self.id == self.leader_id:
+                now_ = time.monotonic()
+
+                with self.heartbeat_lock:
+                    for node in self.nodes:
+                        if node.id == self.id or not node.is_active:
+                            continue
+
+                        last_ack = self.last_seen_control[node.id].timestamp
+                        if (now_ - last_ack) > HEARTBEAT_TIMEOUT:
+                            self.last_seen_control[node.id].missed_acks += 1
+
+                            if (
+                                self.last_seen_control[node.id].missed_acks
+                                >= MAX_MISSED_ACKS
+                            ):
+                                node.is_active = False
+                                self.broadcast_node_status_update(node.id)
+
+            else:
+                with self.heartbeat_lock:
+                    leader_control = self.last_seen_control.get(self.leader_id)
+                    leader_timed_out = (
+                        leader_control is not None
+                        and time.monotonic() - leader_control.timestamp
+                        > HEARTBEAT_TIMEOUT
+                    )
+
+                    if leader_timed_out:
+                        leader_control.missed_acks += 1
+                        should_elect = leader_control.missed_acks >= MAX_MISSED_ACKS
+                    else:
+                        should_elect = False
+
+                if should_elect:
+                    print_message("Líder indisponível; iniciando eleição.")
+                    self.update_node_status(self.leader_id)
+                    self.start_election()
+
+            time.sleep(HEARTBEAT_INTERVAL)
+
+    def broadcast_node_status_update(self, inactivated_node: int) -> None:
+        for node in self.nodes:
+            with self.vector_clock_lock:
+                vector_clock = self.vector_clock.copy()
+            dto = NodeDto(
+                message=inactivated_node,
+                origin=self.id,
+                destination=node.id,
+                type=MessageType.UPDATE_LIST.value,
+                timestamp=datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S"),
+                vector_clock=vector_clock,
+            )
+
+            destination_node = find_node_config(node.id, self.nodes)
+            self.send_to_node(destination_node, dto)

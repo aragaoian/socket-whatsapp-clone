@@ -7,5 +7,6 @@ class Commands(Enum):
     LOCAL = "local"
     GLOBAL = "global"
     STATUS = "status"
+    LIST = "list"
     HELP = "help"
     EXIT = "exit"

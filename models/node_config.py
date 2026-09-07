@@ -6,3 +6,4 @@ class NodeConfig:
     id: int
     port: int
     host: str
+    is_active: bool = False
