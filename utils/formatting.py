@@ -56,3 +56,33 @@ def format_node_list(nodes: list[NodeConfig]) -> str:
     lines.extend(row(values) for values in rows)
     lines.append(separator())
     return "\n".join(lines)
+
+
+def format_snapshot(snapshot_id: str, reports: dict[int, dict[str, object]]) -> str:
+    lines = [f"--- ESTADO GLOBAL {snapshot_id} ---"]
+
+    for node_id in sorted(reports):
+        report = reports[node_id]
+        local_state = report["local_state"]
+        global_history = local_state["global_history"]
+        global_sequences = [item["global_sequence"] for item in global_history]
+        lines.append(
+            f"Node {node_id} | líder {local_state['leader_id']} | "
+            f"VClock {local_state['vector_clock']} | "
+            f"local {len(local_state['local_history'])} | "
+            f"global {global_sequences} | "
+            f"próxima entrega {local_state['next_delivery_sequence']}"
+        )
+
+        channel_states = report["channel_states"]
+        for origin in sorted(channel_states, key=int):
+            messages = channel_states[origin]
+            if messages:
+                message_types = [message["type"] for message in messages]
+                lines.append(
+                    f"  canal {origin} -> {node_id}: {len(messages)} "
+                    f"mensagem(ns) em trânsito {message_types}"
+                )
+
+    lines.append("--- FIM DO ESTADO GLOBAL ---")
+    return "\n".join(lines)

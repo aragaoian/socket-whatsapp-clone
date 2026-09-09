@@ -2,7 +2,7 @@ import argparse
 
 from consts.config import CONFIG_FILE_PATH
 from services.node import Node
-from utils.find_node import find_node_config
+from utils.find_node import find_initial_leader_id, find_node_config
 from utils.read_config import read_config_file
 
 parser = argparse.ArgumentParser()
@@ -18,7 +18,7 @@ node = Node(
     host=node_config.host,
     port=node_config.port,
     nodes=nodes,
-    leader_id=1,
+    leader_id=find_initial_leader_id(nodes),
     vector_clock=[0] * args.count,
 )
 

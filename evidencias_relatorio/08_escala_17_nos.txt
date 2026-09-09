@@ -1,0 +1,41 @@
+============================================================================================
+EVIDÊNCIA 8 — EXECUÇÃO E ORDEM TOTAL COM 17 NÓS
+============================================================================================
+Objetivo: comprovar execução real com mais de 15 instâncias simultâneas.
+
+O testador iniciou 17 processos independentes e confirmou que as portas TCP 5001-5017 ficaram acessíveis simultaneamente.
+Status do Node 1: (1, 17, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), 1)
+Status do Node 17: (17, 17, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), 1)
+Node 17 reconhecido como líder inicial: SIM
+Relógios vetoriais possuem 17 posições: SIM
+
+Foram emitidas três mensagens sendall concorrentemente pelos Nodes 1, 9 e 17.
+Histórico global de referência (Node 1):
+  [GLOBAL 1] Node 17 (local 1) | VClock [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]: ESCALA17-N17
+  [GLOBAL 2] Node 9 (local 1) | VClock [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]: ESCALA17-N9
+  [GLOBAL 3] Node 1 (local 1) | VClock [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]: ESCALA17-N1
+
+Comparação dos 17 históricos globais:
+Node 01: sequências [1, 2, 3] | IDÊNTICO
+Node 02: sequências [1, 2, 3] | IDÊNTICO
+Node 03: sequências [1, 2, 3] | IDÊNTICO
+Node 04: sequências [1, 2, 3] | IDÊNTICO
+Node 05: sequências [1, 2, 3] | IDÊNTICO
+Node 06: sequências [1, 2, 3] | IDÊNTICO
+Node 07: sequências [1, 2, 3] | IDÊNTICO
+Node 08: sequências [1, 2, 3] | IDÊNTICO
+Node 09: sequências [1, 2, 3] | IDÊNTICO
+Node 10: sequências [1, 2, 3] | IDÊNTICO
+Node 11: sequências [1, 2, 3] | IDÊNTICO
+Node 12: sequências [1, 2, 3] | IDÊNTICO
+Node 13: sequências [1, 2, 3] | IDÊNTICO
+Node 14: sequências [1, 2, 3] | IDÊNTICO
+Node 15: sequências [1, 2, 3] | IDÊNTICO
+Node 16: sequências [1, 2, 3] | IDÊNTICO
+Node 17: sequências [1, 2, 3] | IDÊNTICO
+
+17 processos simultâneos confirmados: SIM
+Históricos idênticos nos 17 nós: SIM
+Vetores das mensagens possuem 17 posições: SIM
+RESULTADO: APROVADO
+============================================================================================

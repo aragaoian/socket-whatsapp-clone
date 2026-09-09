@@ -1,0 +1,306 @@
+\chapter{AVALIAÇÃO EXPERIMENTAL}\label{chap:avaliacao}
+
+\section{Metodologia}
+
+Foram executados ensaios temporários sobre o código do repositório, sem modificar
+a implementação. Cada nó foi iniciado pelo sistema operacional como um processo
+separado, usando o ponto de entrada \texttt{lauch\_node.py}, o catálogo original e
+as portas 5001 a 5015 em \texttt{127.0.0.1}. Os comandos foram escritos na entrada
+padrão dos processos em rápida sucessão e percorreram sockets TCP reais. Depois
+das entregas, o comando \texttt{global} foi solicitado em todos os terminais; as
+tuplas (sequência global, origem, texto) foram extraídas das saídas e comparadas.
+Todos os processos encerraram normalmente.
+
+Foi adicionada uma suíte reproduzível baseada no módulo \texttt{unittest} da
+biblioteca padrão. Os arquivos \texttt{tests/test\_snapshot.py},
+\texttt{tests/test\_private\_message.py},
+\texttt{tests/test\_order\_recovery.py} e
+\texttt{tests/test\_initial\_leader.py} validam a reordenação FIFO do canal lógico,
+forçam uma mensagem a ficar em trânsito durante uma captura, verificam a separação
+entre mensagens privadas e de grupo, simulam recuperação após difusão parcial e
+confirmam a seleção inicial do maior ID ativo. A execução é feita por:
+
+\begin{lstlisting}[style=bash, numbers=none]
+uv run python -m unittest discover -s tests -v
+\end{lstlisting}
+
+\section{Ordem global com 3, 8 e 15 nós}
+
+Os três cenários foram concluídos com todos os históricos idênticos e todos os
+buffers vazios, conforme a Tabela~\ref{tab:testes-ordem}. No ensaio com três nós,
+cada participante emitiu uma mensagem. Nos ensaios com oito e quinze, cinco nós
+emitiram simultaneamente.
+
+\begin{table}[H]
+    \centering
+    \caption{Resultados da difusão e entrega ordenada}
+    \label{tab:testes-ordem}
+    \begin{tabular}{ccccc}
+        \toprule
+        \textbf{Nós} & \textbf{Envios} & \textbf{Todos receberam} &
+        \textbf{Históricos idênticos} & \textbf{Buffers vazios} \\
+        \midrule
+        3  & 3 & Sim & Sim & Sim \\
+        8  & 5 & Sim & Sim & Sim \\
+        15 & 5 & Sim & Sim & Sim \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_ordem_total_3_nos.png}
+    \caption{Execução do teste de ordem total com três nós}
+    \label{fig:teste-ordem-3-nos}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
+A saída resumida do cenário de 15 nós foi:
+
+\begin{lstlisting}[numbers=none]
+GLOBAL 1 | Node 1 | processo-1
+GLOBAL 2 | Node 3 | processo-3
+GLOBAL 3 | Node 2 | processo-2
+GLOBAL 4 | Node 4 | processo-4
+GLOBAL 5 | Node 5 | processo-5
+
+comparacao dos 15 historicos: IDENTICOS
+buffers restantes: [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []]
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_ordem_total_15_nos.png}
+    \caption{Execução do teste de ordem total com quinze nós}
+    \label{fig:teste-ordem-15-nos}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
+Os pedidos dos nós 2 e 3 foram emitidos em rápida sucessão por processos
+independentes, mas o líder aceitou o pedido do nó 3 primeiro. Todos os participantes
+observaram a mesma inversão. Isso é uma evidência direta de que a ordem exibida foi
+determinada pela sequência global e não por uma suposição local sobre a ordem de
+emissão.
+
+\subsection{Validação adicional com 17 nós}
+
+Para verificar o comportamento da implementação acima do mínimo de 15 nós, foi executado um cenário adicional com 17 processos simultâneos. Três
+mensagens de grupo foram difundidas, e os 17 participantes apresentaram históricos
+globais idênticos, com as sequências $[1,2,3]$. Os relógios vetoriais associados às
+mensagens taSmbém apresentaram 17 posições, correspondentes ao número de participantes
+da execução.
+
+A Figura~\ref{fig:teste-ordem-17-nos} apresenta a comparação automática dos 17
+históricos globais e a confirmação da consistência da ordem total nesse cenário.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_ordem_total_17_nos.png}
+    \caption{Execução do teste de ordem total com dezessete nós}
+    \label{fig:teste-ordem-17-nos}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
+\subsection{Validação de dependência causal}
+
+Além do cenário com mensagens concorrentes, foi executado um teste controlado para verificar o comportamento do relógio vetorial diante de uma relação de dependência causal. Inicialmente, o nó 1 emitiu a mensagem \texttt{CAUSAL-A}. O testador aguardou até que essa mensagem fosse efetivamente entregue ao nó 2 e, somente após essa entrega, o nó 2 emitiu a mensagem \texttt{CAUSAL-B}. Dessa forma, a emissão de \texttt{CAUSAL-B} ocorreu após a observação de \texttt{CAUSAL-A}, estabelecendo a relação causal
+\[
+A \rightarrow B.
+\]
+
+A mensagem \texttt{CAUSAL-A} foi registrada com sequência global 1 e relógio vetorial
+\[
+[1,0,0],
+\]
+enquanto \texttt{CAUSAL-B} recebeu sequência global 2 e relógio vetorial
+\[
+[1,2,0].
+\]
+O vetor associado a \texttt{CAUSAL-B} incorpora o evento previamente observado no nó 1, evidenciando que o relógio vetorial preservou a informação de causalidade entre os eventos.
+
+Ao final do experimento, os três participantes apresentaram a mesma ordem global, com \texttt{CAUSAL-A} precedendo \texttt{CAUSAL-B}. Assim, o teste confirma tanto a propagação da informação causal pelos relógios vetoriais quanto a compatibilidade dessa relação com a ordem total estabelecida pelo sequenciador.
+
+A Figura~\ref{fig:teste-causal} apresenta a execução do cenário de dependência causal e os relógios vetoriais associados às mensagens.
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\textwidth]{04-figuras/teste_dependencia_causal.png}
+    \caption{Validação experimental da dependência causal entre as mensagens \texttt{CAUSAL-A} e \texttt{CAUSAL-B}.}
+    \label{fig:teste-causal}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
+\section{Captura de estado global}\label{sec:teste-snapshot}
+
+O snapshot foi validado em três níveis. No teste unitário controlado, o nó 1
+registrou seu estado e enviou o primeiro marcador, que foi deliberadamente retido.
+Antes de o nó 2 receber esse marcador, ele enviou uma mensagem ao nó 1. A mensagem
+foi entregue ao iniciador antes do marcador de retorno. O resultado foi um corte
+consistente: o estado local do nó 2 continha o evento de envio, o estado local do
+nó 1 ainda não continha a recepção e o canal $2 \rightarrow 1$ continha exatamente
+essa mensagem em trânsito.
+
+Depois, o comando \texttt{snapshot} foi executado com sockets reais e processos
+independentes. A Tabela~\ref{tab:testes-snapshot} apresenta os resultados. No
+cenário com três nós, o nó 2 iniciou a captura depois de duas mensagens de grupo.
+No cenário com quinze nós, o nó 8 iniciou a captura depois de cinco mensagens.
+
+\begin{table}[H]
+    \centering
+    \caption{Resultados da captura de estado global}
+    \label{tab:testes-snapshot}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{ccccc}
+        \toprule
+        \textbf{Nós} & \textbf{Iniciador} & \textbf{Relatórios} &
+        \textbf{Snapshot concluído} & \textbf{Processos encerrados} \\
+        \midrule
+        3  & 2 & 3  & Sim & Normalmente \\
+        15 & 8 & 15 & Sim & Normalmente \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+No ensaio com quinze nós, todos os relatórios exibiram o histórico global
+$[1,2,3,4,5]$. A verificação resumida produziu:
+
+\begin{lstlisting}[numbers=none]
+snapshot concluido: SIM
+iniciador: Node 8
+relatorios recebidos: 15
+nodes: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+historicos globais identicos: SIM
+historico de referencia: [1, 2, 3, 4, 5]
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_snapshot_estado_global.png}
+    \caption{Execução da captura de estado global com o algoritmo de Chandy--Lamport}
+    \label{fig:teste-snapshot}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
+Esses ensaios demonstram tanto a conclusão do protocolo na escala exigida quanto
+o aspecto essencial de consistência: uma mensagem que cruza o corte não desaparece
+nem é contada como recebida antes de seu envio, pois permanece registrada no
+estado do canal.
+
+\section{Inicialização, falha e reeleição}
+
+A seleção inicial também foi verificada diretamente: com três processos, todos
+identificaram o nó 3 como coordenador; com quinze processos, todos identificaram o
+nó 15. Portanto, a inicialização aplica o mesmo critério de prioridade do algoritmo \textit{Bully}, em vez de fixar o nó 1.
+
+No cenário de falha com três processos, duas mensagens foram entregues nas
+sequências 1 e 2. Em seguida, o coordenador de maior ID, nó 3, foi encerrado
+abruptamente por \texttt{SIGKILL}. O nó 1 tentou enviar uma terceira mensagem; a
+falha de conexão fez com que ele preservasse o pedido e iniciasse a eleição. Os
+nós 1 e 2 elegeram o nó 2, que consultou os estados disponíveis, restaurou o
+prefixo $[1,2]$ e definiu 3 como próxima sequência. Depois do anúncio, o nó 1
+reenviou automaticamente o pedido pendente, entregue como sequência 3 nos dois
+sobreviventes.
+
+\begin{table}[H]
+    \centering
+    \caption{Ensaio de troca do sequenciador}
+    \label{tab:teste-eleicao}
+    \begin{tabular}{p{8.0cm} p{5.0cm}}
+        \toprule
+        \textbf{Observação} & \textbf{Resultado} \\
+        \midrule
+        Histórico antes da falha & $[1,2]$ em todos os nós \\
+        Líder inicial entre os nós 1, 2 e 3 & Nó 3 \\
+        Líder eleito entre os nós 1 e 2 & Nó 2 \\
+        Prefixo recuperado pelo novo líder & $[1,2]$ \\
+        Próxima sequência restaurada & 3 \\
+        Pedido que detectou a falha & Reenviado automaticamente \\
+        Históricos finais dos sobreviventes & $[1,2,3]$ e $[1,2,3]$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_reeleicao_lider.png}
+    \caption{Execução da reeleição do coordenador e continuidade da ordem global}
+    \label{fig:teste-reeleicao}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
+Também foi executado um teste controlado de difusão parcial. Um sobrevivente
+possuía $[1,2]$, enquanto o futuro líder possuía apenas $[1]$. A resposta de estado
+permitiu que o novo coordenador recuperasse a mensagem 2 e a retransmitisse antes
+de criar a sequência 3. Ambos terminaram com $[1,2,3]$. Os dois cenários demonstram
+continuidade e convergência da ordem total após falha do sequenciador.
+
+\section{Mensagem privada}
+
+O unicast privado foi validado inicialmente com um teste unitário de dois nós. O
+nó 1 enviou a mensagem ao nó 2, que atualizou seu relógio de $[0,0]$ para $[1,1]$
+e produziu exatamente uma saída \texttt{[PRIVADA]}. O evento permaneceu no
+histórico local do emissor, enquanto os históricos local e global do receptor não
+foram indevidamente alterados.
+
+Em seguida, dois processos independentes trocaram a mensagem
+\texttt{mensagem-reservada-real} pelas portas 5001 e 5002. A mensagem apareceu uma
+vez no destino e nenhuma vez no emissor. Uma mensagem de grupo enviada como controle
+foi entregue globalmente nos dois processos e não recebeu o rótulo privado. O mesmo
+teste confirmou que mensagens de grupo remotas atualizam o vetor apenas uma vez.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_mensagem_privada.png}
+    \caption{Execução do teste de mensagem privada por unicast}
+    \label{fig:teste-mensagem-privada}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
+\section{Limitações}\label{sec:limitacoes}
+
+Além dos resultados anteriores, a versão atual possui as seguintes limitações:
+
+\begin{itemize}
+    \item \textbf{Falha durante snapshot:} o conjunto de participantes é fixado no
+    início e não há timeout ou repetição de marcador. Se um participante falhar
+    durante a captura, o iniciador continuará aguardando seu relatório.
+    \item \textbf{Custo do snapshot:} na topologia completamente conectada, cada
+    nó envia um marcador aos demais, resultando em $N(N-1)$ marcadores, além dos
+    relatórios enviados ao iniciador.
+    \item \textbf{Recuperação da ordem:} o candidato aguarda respostas por três
+    segundos e prossegue apenas com os participantes responsivos. O protocolo
+    pressupõe que ao menos um sobrevivente possua cada sequência que chegou a ser
+    difundida; se detectar conflito ou lacuna na união, não abre o sequenciador.
+    A retransmissão percorre todo o histórico conhecido, cujo custo cresce com o
+    tempo de execução.
+\end{itemize}
+
+\section{Síntese dos requisitos}
+
+A Tabela~\ref{tab:requisitos} resume a cobertura verificada por inspeção e pelos
+ensaios descritos neste capítulo.
+
+\begin{table}[H]
+    \centering
+    \caption{Cobertura dos requisitos funcionais}
+    \label{tab:requisitos}
+    \begin{tabular}{c p{3.3cm} p{8.7cm}}
+        \toprule
+        \textbf{Req.} & \textbf{Situação} & \textbf{Evidência} \\
+        \midrule
+        R1 & Atendido & Difusão TCP entregue a todos em 3, 8 e 15 nós. \\
+        R2 & Atendido & Mensagens privadas e de grupo foram entregues por TCP. \\
+        R3 & Atendido & Inicialização e entrega verificadas com 3, 8 e 15 processos. \\
+        R4 & Atendido & Históricos são idênticos no caminho normal e após queda,
+        recuperação e substituição do sequenciador. \\
+        R5 & Atendido & Terminal oferece unicast, grupo, ordens local e global,
+        estado, lista de nós e snapshot. \\
+        R6 & Atendido & Chandy--Lamport registra estados locais e canais; o comando
+        foi concluído com 3 e 15 processos e registrou mensagem em trânsito. \\
+        R7 & Atendido & Itens documentais do roteiro são cobertos neste relatório. \\
+        R8 & Atendido & O maior ID ativo é eleito, recupera o prefixo global e
+        anuncia sua coordenação antes de retomar os pedidos. \\
+        \bottomrule
+    \end{tabular}
+\end{table}

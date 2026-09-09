@@ -27,7 +27,13 @@ class Socket:
                 break
 
             with conn:
-                data = conn.recv(BUFFER_SIZE)
+                chunks = []
+                while True:
+                    chunk = conn.recv(BUFFER_SIZE)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                data = b"".join(chunks)
                 if data:
                     process_message(data)
 

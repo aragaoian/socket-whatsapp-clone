@@ -1,0 +1,33 @@
+============================================================================================
+EVIDÊNCIA 6 — QUEDA DO LÍDER, ELEIÇÃO E CONTINUIDADE
+============================================================================================
+Líder inicial esperado: Node 3 (maior ID ativo).
+Prefixo global antes da falha: ['1:N1:ANTES-FALHA-1', '2:N2:ANTES-FALHA-2']
+Ação do testador: encerramento forçado do processo do Node 3.
+Em seguida, Node 1 emitiu sendall APOS-REELEICAO, disparando a detecção da falha.
+
+Trechos observados durante eleição/recuperação:
+  Node 1: Líder não acessível, reelegendo líder.
+  Node 1: [ELEIÇÃO] Node 2 está ativo; ele continuará a eleição.
+  Node 1: [ELEIÇÃO] Aguardando anúncio do novo coordenador.
+  Node 1: [COORDENADOR] Node 2 é o novo líder.
+  Node 2: [ELEIÇÃO] Solicitação recebida do Node 1.
+  Node 2: [RECUPERAÇÃO] Node 2 reconstruindo a ordem global.
+  Node 2: [RECUPERAÇÃO] Ordem restaurada até 2; próxima sequência 3.
+  Node 2: [COORDENADOR] Node 2 é o novo líder.
+
+Status final Node 1: (1, 2, (5, 2, 0), 4)
+Status final Node 2: None
+Histórico final Node 1:
+  [GLOBAL 1] Node 1 (local 1) | VClock [1, 0, 0]: ANTES-FALHA-1
+  [GLOBAL 2] Node 2 (local 1) | VClock [1, 2, 0]: ANTES-FALHA-2
+  [GLOBAL 3] Node 1 (local 2) | VClock [4, 2, 0]: APOS-REELEICAO
+Histórico final Node 2:
+  [GLOBAL 1] Node 1 (local 1) | VClock [1, 0, 0]: ANTES-FALHA-1
+  [GLOBAL 2] Node 2 (local 1) | VClock [1, 2, 0]: ANTES-FALHA-2
+  [GLOBAL 3] Node 1 (local 2) | VClock [4, 2, 0]: APOS-REELEICAO
+
+Novo líder é Node 2 em ambos os sobreviventes: SIM
+Sequência continuou em [1, 2, 3], sem reiniciar: SIM
+RESULTADO: APROVADO
+============================================================================================

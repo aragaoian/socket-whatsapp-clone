@@ -4,12 +4,28 @@
 
 \begin{RESUMO}
 \thispagestyle{empty}
-	
-		\noindent Conforme as normas NBR 14724:2011 da ABNT, o resumo é elemento obrigatório, constituído de uma sequência de frases concisas e objetivas e não de uma simples enumeração de tópicos, não ultrapassando 500 palavras, seguido, logo abaixo, das palavras representativas do conteúdo do trabalho, isto é, palavras-chave e/ou descritores.
 
-		\vspace*{0.5cm}\noindent\textbf{Palavras-chave}: Conclusão. Trabalho. Curso. NBR. ABNT.
-		
+    \noindent Este relatório apresenta o desenvolvimento de um chat distribuído
+    executado por processos independentes e comunicado exclusivamente por sockets
+    TCP. A solução permite configurar até 15 nós a partir de um catálogo estático
+    de endereços, mantém relógios vetoriais e utiliza um nó coordenador como
+    sequenciador das mensagens de grupo. Cada mensagem de grupo recebe um número
+    de sequência global e é difundida por unicast a todos os participantes; em
+    cada receptor, um buffer somente libera sequências contíguas. Também foram
+    implementados detecção de falhas por batimentos periódicos, reeleição do
+    coordenador pelo algoritmo \textit{Bully} e captura de estado global pelo algoritmo
+    de Chandy--Lamport. A captura registra estados locais e mensagens em trânsito
+    sem interromper o chat. Ensaios automatizados com sockets reais em uma única
+    máquina, envolvendo 3, 8 e 15 processos independentes, confirmaram que
+    todos os nós ativos entregaram as mensagens de grupo na mesma ordem e sem itens
+    remanescentes no buffer. O snapshot foi concluído com 3 e 15 processos, e um
+    teste controlado confirmou o registro de uma mensagem em trânsito. Em um ensaio
+    de falha, o nó 2 foi eleito após a queda do coordenador de maior ID, recuperou
+    as sequências 1 e 2 a partir dos sobreviventes e entregou a mensagem seguinte
+    como sequência 3. Dessa forma, a ordem total permaneceu idêntica após a
+    reeleição.
+
+    \vspace*{0.5cm}\noindent\textbf{Palavras-chave}: sistemas distribuídos;
+    comunicação de grupo; ordem total; relógio vetorial; snapshot distribuído.
 
 \end{RESUMO}
-
-

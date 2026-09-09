@@ -1,0 +1,20 @@
+============================================================================================
+EVIDÊNCIA 4 — DEPENDÊNCIA CAUSAL
+============================================================================================
+Procedimento controlado:
+1. Node 1 emitiu CAUSAL-A.
+2. O testador aguardou a ENTREGA de CAUSAL-A no Node 2.
+3. Somente então o Node 2 emitiu CAUSAL-B.
+Logo, a emissão de B ocorre causalmente após a observação de A (A -> B).
+
+A: sequência global 1, VClock [1, 0, 0]
+B: sequência global 2, VClock [1, 2, 0]
+Vetor de B incorpora A (A <= B componente a componente): SIM
+Ordem global preserva A antes de B: SIM
+
+Node 1: 1:N1:CAUSAL-A | 2:N2:CAUSAL-B
+Node 2: 1:N1:CAUSAL-A | 2:N2:CAUSAL-B
+Node 3: 1:N1:CAUSAL-A | 2:N2:CAUSAL-B
+
+RESULTADO: APROVADO
+============================================================================================

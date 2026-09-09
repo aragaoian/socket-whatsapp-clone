@@ -3,10 +3,32 @@
 %
 \chapter{INTRODUÇÃO}\label{chap:introducao}
 
+Sistemas distribuídos são formados por processos independentes que cooperam por
+troca de mensagens. Como não há memória nem relógio físico compartilhados, a
+observação de eventos e a manutenção de uma ordem comum exigem protocolos
+explícitos. Relógios lógicos preservam relações de precedência, enquanto relógios
+vetoriais permitem representar relações causais e identificar eventos concorrentes
+\cite{lamport1978,tanenbaum2007}. Ainda assim, causalidade define apenas uma ordem
+parcial: mensagens concorrentes podem ser observadas em ordens diferentes por
+participantes distintos.
 
-Os Trabalhos de Conclusão de Curso (TCC) são documentos que
-representam o resultado de estudo, devendo expressar conhecimento do assunto escolhido. Deve ser emanado da disciplina, módulo, estudo independente, curso, programa e outros ministrados. Deve ser feito sob a coordenação de um orientador.
+O trabalho propõe a implementação de uma aplicação distribuída com comunicação de
+grupo, ordem total, número configurável de nós, interface por nó e \textit{snapshot} de um
+estado global consistente. Entre os temas oferecidos, escolheu-se o
+\textbf{chat distribuído}. Cada participante é um processo do sistema operacional,
+com estado privado e endereço próprio. A única informação compartilhada antes da
+execução é o catálogo estático de endereços; durante a execução, toda coordenação
+ocorre por mensagens de rede.
 
-Na Universidade Federal de Alagoas após sua apresentação
-eles são submetidos a biblioteca do Campus e devem seguir o padrão estabelecido pela Associação Brasileira de Normas Técnicas. A norma que determina os trabalhos com esse fim é a NBR 14724. Nesse documento será usada documentação o ABNTEX disponivel no site \href{https://code.google.com/p/abntex2/}{https://code.google.com/p/abntex2/} .
+Para estabelecer uma sequência única das mensagens de grupo, foi escolhida a
+abordagem de \textbf{sequenciador}. Um coordenador atribui números globais
+monotônicos e redifunde as mensagens; relógios vetoriais permanecem anexados aos
+eventos para registrar a evolução causal. Como o coordenador é um ponto crítico,
+o protótipo emprega \textit{health-checks} e o algoritmo \textit{Bully} para eleição de
+um substituto. Para o estado global, emprega-se \textit{Chandy-Lamport} sobre canais
+lógicos FIFO identificados e numerados na camada de aplicação. Essa opção permite
+registrar estados locais e mensagens em trânsito sem interromper os participantes.
 
+O objetivo deste relatório é descrever a arquitetura, explicar seus algoritmos, decisões e
+registrar os resultados verificáveis. Por isso, além das funcionalidades demonstradas, 
+são apresentadas e discutidas as limitações ainda existentes no projeto.
