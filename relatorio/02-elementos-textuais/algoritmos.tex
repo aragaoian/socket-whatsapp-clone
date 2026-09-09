@@ -98,7 +98,14 @@ batimento do coordenador. O limiar base é de dez segundos e a inativação ou
 eleição ocorre após três verificações vencidas. Quando o líder considera um
 participante inativo, difunde uma atualização da lista.
 
-A eleição segue o algoritmo do Valentão. Seu passo a passo na implementação é:
+A eleição segue o algoritmo do Valentão, descrito resumidamente na Figura \ref{fig:fluxo-eleicao}. Seu passo a passo na implementação é:
+
+\begin{figure}[H]
+    \centering
+    \caption{Fluxograma resumido do funcionamento da eleição}
+    \label{fig:fluxo-eleicao}
+    \includegraphics[width=1.0\textwidth]{04-figuras/fluxo_eleicao.png}
+\end{figure}
 
 \begin{enumerate}
     \item O nó que detecta a indisponibilidade marca o líder anterior como inativo

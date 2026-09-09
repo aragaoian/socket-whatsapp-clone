@@ -13,7 +13,7 @@ parcial: mensagens concorrentes podem ser observadas em ordens diferentes por
 participantes distintos.
 
 O trabalho propõe a implementação de uma aplicação distribuída com comunicação de
-grupo, ordem total, número configurável de nós, interface por nó e captura de um
+grupo, ordem total, número configurável de nós, interface por nó e \textit{snapshot} de um
 estado global consistente. Entre os temas oferecidos, escolheu-se o
 \textbf{chat distribuído}. Cada participante é um processo do sistema operacional,
 com estado privado e endereço próprio. A única informação compartilhada antes da
@@ -24,24 +24,11 @@ Para estabelecer uma sequência única das mensagens de grupo, foi escolhida a
 abordagem de \textbf{sequenciador}. Um coordenador atribui números globais
 monotônicos e redifunde as mensagens; relógios vetoriais permanecem anexados aos
 eventos para registrar a evolução causal. Como o coordenador é um ponto crítico,
-o protótipo emprega batimentos de saúde e o algoritmo do Valentão para eleição de
-um substituto. Para o estado global, emprega-se Chandy--Lamport sobre canais
+o protótipo emprega \textit{health-checks} e o algoritmo do Valentão para eleição de
+um substituto. Para o estado global, emprega-se \textit{Chandy-Lamport} sobre canais
 lógicos FIFO identificados e numerados na camada de aplicação. Essa opção permite
 registrar estados locais e mensagens em trânsito sem interromper os participantes.
 
-O objetivo deste relatório é descrever fielmente a arquitetura encontrada no
-repositório, explicar seus algoritmos e registrar os resultados verificáveis. Por
-isso, além das funcionalidades demonstradas, são apresentadas as limitações ainda
-existentes. A versão analisada mantém a ordem total durante a substituição do líder
-por meio da consulta aos históricos e buffers dos sobreviventes, seguida da
-retransmissão do prefixo global antes de liberar novas sequências. Comunicação
-privada, comunicação de grupo e snapshot também estão operantes.
-
-\section{Organização do relatório}
-
-O Capítulo~\ref{chap:projeto} descreve equipe, tecnologias, arquitetura, rede e
-execução. O Capítulo~\ref{chap:algoritmos} detalha relógio vetorial, ordem total,
-eleição e o algoritmo implementado para estado global. O
-Capítulo~\ref{chap:avaliacao} apresenta os cenários de validação e as limitações.
-Por fim, o Capítulo~\ref{chap:conclusao} sintetiza os resultados e os requisitos
-pendentes.
+O objetivo deste relatório é descrever a arquitetura, explicar seus algoritmos, decisões e
+registrar os resultados verificáveis. Por isso, além das funcionalidades demonstradas, 
+são apresentadas e discutidas as limitações ainda existentes no projeto.

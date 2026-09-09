@@ -216,3 +216,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# LATEX Paper
+*.gz
+*.aux
+*.bbl
+*.blg
+*.brf
+*.toc
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
