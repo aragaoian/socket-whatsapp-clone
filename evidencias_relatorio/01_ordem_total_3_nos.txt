@@ -1,0 +1,22 @@
+============================================================================================
+EVIDÊNCIA 1 — ORDEM TOTAL COM 3 NÓS
+============================================================================================
+Objetivo: demonstrar comunicação de grupo e ordem total em três processos independentes.
+Os três comandos sendall foram liberados por uma barreira de threads do testador.
+
+--- ORDEM GLOBAL DO NODE 1 ---
+[GLOBAL 1] Node 3 (local 1) | VClock [0, 0, 1]: CONCORRENTE-N3
+[GLOBAL 2] Node 1 (local 1) | VClock [1, 0, 0]: CONCORRENTE-N1
+[GLOBAL 3] Node 2 (local 1) | VClock [0, 1, 0]: CONCORRENTE-N2
+--- ORDEM GLOBAL DO NODE 2 ---
+[GLOBAL 1] Node 3 (local 1) | VClock [0, 0, 1]: CONCORRENTE-N3
+[GLOBAL 2] Node 1 (local 1) | VClock [1, 0, 0]: CONCORRENTE-N1
+[GLOBAL 3] Node 2 (local 1) | VClock [0, 1, 0]: CONCORRENTE-N2
+--- ORDEM GLOBAL DO NODE 3 ---
+[GLOBAL 1] Node 3 (local 1) | VClock [0, 0, 1]: CONCORRENTE-N3
+[GLOBAL 2] Node 1 (local 1) | VClock [1, 0, 0]: CONCORRENTE-N1
+[GLOBAL 3] Node 2 (local 1) | VClock [0, 1, 0]: CONCORRENTE-N2
+
+Históricos idênticos: SIM
+RESULTADO: APROVADO
+============================================================================================

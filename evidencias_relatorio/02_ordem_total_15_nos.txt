@@ -1,0 +1,33 @@
+============================================================================================
+EVIDÊNCIA 2 — ORDEM TOTAL COM 15 NÓS
+============================================================================================
+Objetivo: demonstrar inicialização configurável com 15 processos e convergência da ordem global.
+Cinco nós emitiram mensagens de grupo concorrentes; todos os 15 receptores foram verificados.
+
+Histórico de referência (Node 1):
+  [GLOBAL 1] Node 4 (local 1) | VClock [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]: ESCALA-N4
+  [GLOBAL 2] Node 5 (local 1) | VClock [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]: ESCALA-N5
+  [GLOBAL 3] Node 1 (local 1) | VClock [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]: ESCALA-N1
+  [GLOBAL 4] Node 2 (local 1) | VClock [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]: ESCALA-N2
+  [GLOBAL 5] Node 3 (local 1) | VClock [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]: ESCALA-N3
+
+Comparação dos 15 históricos:
+Node 01: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 02: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 03: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 04: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 05: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 06: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 07: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 08: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 09: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 10: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 11: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 12: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 13: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 14: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+Node 15: sequências [1, 2, 3, 4, 5] | IDÊNTICO
+
+Históricos idênticos nos 15 nós: SIM
+RESULTADO: APROVADO
+============================================================================================

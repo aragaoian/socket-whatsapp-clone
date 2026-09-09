@@ -1,0 +1,12 @@
+============================================================================================
+EVIDÊNCIA 3 — MENSAGEM PRIVADA UNICAST
+============================================================================================
+Comando emitido pelo Node 1: send 2 PRIVADA-N1-PARA-N2
+
+Node 2 recebeu: [PRIVADA] 17:32:03 - Node 1 | VClock [1, 0, 0]: PRIVADA-N1-PARA-N2
+Ocorrências da mensagem privada: Node 1=0, Node 2=1, Node 3=0
+Mensagens na ordem global: Node 1=0, Node 2=0, Node 3=0
+
+Somente o destinatário recebeu e a mensagem não entrou na ordem global: SIM
+RESULTADO: APROVADO
+============================================================================================
