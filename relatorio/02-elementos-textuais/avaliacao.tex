@@ -82,6 +82,25 @@ observaram a mesma inversão. Isso é uma evidência direta de que a ordem exibi
 determinada pela sequência global e não por uma suposição local sobre a ordem de
 emissão.
 
+\subsection{Validação adicional com 17 nós}
+
+Para verificar o comportamento da implementação acima do mínimo de 15 nós, foi executado um cenário adicional com 17 processos simultâneos. Três
+mensagens de grupo foram difundidas, e os 17 participantes apresentaram históricos
+globais idênticos, com as sequências $[1,2,3]$. Os relógios vetoriais associados às
+mensagens taSmbém apresentaram 17 posições, correspondentes ao número de participantes
+da execução.
+
+A Figura~\ref{fig:teste-ordem-17-nos} apresenta a comparação automática dos 17
+históricos globais e a confirmação da consistência da ordem total nesse cenário.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_ordem_total_17_nos.png}
+    \caption{Execução do teste de ordem total com dezessete nós}
+    \label{fig:teste-ordem-17-nos}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
 \subsection{Validação de dependência causal}
 
 Além do cenário com mensagens concorrentes, foi executado um teste controlado para verificar o comportamento do relógio vetorial diante de uma relação de dependência causal. Inicialmente, o nó 1 emitiu a mensagem \texttt{CAUSAL-A}. O testador aguardou até que essa mensagem fosse efetivamente entregue ao nó 2 e, somente após essa entrega, o nó 2 emitiu a mensagem \texttt{CAUSAL-B}. Dessa forma, a emissão de \texttt{CAUSAL-B} ocorreu após a observação de \texttt{CAUSAL-A}, estabelecendo a relação causal
@@ -255,9 +274,6 @@ Além dos resultados anteriores, a versão atual possui as seguintes limitaçõe
     difundida; se detectar conflito ou lacuna na união, não abre o sequenciador.
     A retransmissão percorre todo o histórico conhecido, cujo custo cresce com o
     tempo de execução.
-    \item \textbf{Escalabilidade:} uma difusão requer uma conexão por destinatário
-    e é feita sequencialmente pelo líder. O catálogo entregue termina no nó 15, e
-    \texttt{start.sh} não valida pedidos acima desse limite.
 \end{itemize}
 
 \section{Síntese dos requisitos}
