@@ -1,7 +1,9 @@
 import unittest
 
+from consts.config import CONFIG_FILE_PATH
 from models.node_config import NodeConfig
 from utils.find_node import find_initial_leader_id
+from utils.read_config import read_config_file
 
 
 class InitialLeaderTest(unittest.TestCase):
@@ -30,6 +32,14 @@ class InitialLeaderTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Não há nós ativos"):
             find_initial_leader_id(nodes)
+
+    def test_catalog_supports_seventeen_nodes(self) -> None:
+        nodes = read_config_file(CONFIG_FILE_PATH, 17)
+
+        self.assertEqual(len(nodes), 17)
+        self.assertEqual([node.id for node in nodes], list(range(1, 18)))
+        self.assertEqual(nodes[-1].port, 5017)
+        self.assertEqual(find_initial_leader_id(nodes), 17)
 
 
 if __name__ == "__main__":
