@@ -11,11 +11,18 @@ das entregas, o comando \texttt{global} foi solicitado em todos os terminais; as
 tuplas (sequência global, origem, texto) foram extraídas das saídas e comparadas.
 Todos os processos encerraram normalmente.
 
-Não há arquivos-fonte de testes no diretório \texttt{tests} da versão avaliada;
-foi encontrado apenas um arquivo \texttt{.pyc} antigo. O comando
-\texttt{uv run pytest} também não pôde ser usado porque \texttt{pytest} não está
-declarado nas dependências. Por esse motivo, os resultados desta seção provêm do
-ensaio externo descrito acima.
+Foi adicionada uma suíte reproduzível baseada no módulo \texttt{unittest} da
+biblioteca padrão. Os arquivos \texttt{tests/test\_snapshot.py},
+\texttt{tests/test\_private\_message.py},
+\texttt{tests/test\_order\_recovery.py} e
+\texttt{tests/test\_initial\_leader.py} validam a reordenação FIFO do canal lógico,
+forçam uma mensagem a ficar em trânsito durante uma captura, verificam a separação
+entre mensagens privadas e de grupo, simulam recuperação após difusão parcial e
+confirmam a seleção inicial do maior ID ativo. A execução é feita por:
+
+\begin{lstlisting}[style=bash, numbers=none]
+uv run python -m unittest discover -s tests -v
+\end{lstlisting}
 
 \section{Ordem global com 3, 8 e 15 nós}
 
@@ -59,15 +66,70 @@ observaram a mesma inversão. Isso é uma evidência direta de que a ordem exibi
 determinada pela sequência global e não por uma suposição local sobre a ordem de
 emissão.
 
-\section{Falha e reeleição}
+\section{Captura de estado global}\label{sec:teste-snapshot}
 
-Em um cenário adicional com três nós, duas mensagens foram entregues nas
-sequências 1 e 2. Em seguida, o nó 1 foi encerrado e o nó 2 iniciou a eleição. Os
-nós 2 e 3 convergiram para o nó 3 como novo líder, demonstrando a seleção do maior
-ID ativo. Contudo, a primeira mensagem sequenciada pelo novo líder recebeu
-novamente o número 1. Como os receptores sobreviventes já aguardavam a sequência
-3, descartaram a mensagem como antiga. O resultado está resumido na
-Tabela~\ref{tab:teste-eleicao}.
+O snapshot foi validado em três níveis. No teste unitário controlado, o nó 1
+registrou seu estado e enviou o primeiro marcador, que foi deliberadamente retido.
+Antes de o nó 2 receber esse marcador, ele enviou uma mensagem ao nó 1. A mensagem
+foi entregue ao iniciador antes do marcador de retorno. O resultado foi um corte
+consistente: o estado local do nó 2 continha o evento de envio, o estado local do
+nó 1 ainda não continha a recepção e o canal $2 \rightarrow 1$ continha exatamente
+essa mensagem em trânsito.
+
+Depois, o comando \texttt{snapshot} foi executado com sockets reais e processos
+independentes. A Tabela~\ref{tab:testes-snapshot} apresenta os resultados. No
+cenário com três nós, o nó 2 iniciou a captura depois de duas mensagens de grupo.
+No cenário com quinze nós, o nó 8 iniciou a captura depois de cinco mensagens.
+
+\begin{table}[H]
+    \centering
+    \caption{Resultados da captura de estado global}
+    \label{tab:testes-snapshot}
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{ccccc}
+        \toprule
+        \textbf{Nós} & \textbf{Iniciador} & \textbf{Relatórios} &
+        \textbf{Snapshot concluído} & \textbf{Processos encerrados} \\
+        \midrule
+        3  & 2 & 3  & Sim & Normalmente \\
+        15 & 8 & 15 & Sim & Normalmente \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+No ensaio com quinze nós, todos os relatórios exibiram o histórico global
+$[1,2,3,4,5]$. A verificação resumida produziu:
+
+\begin{lstlisting}[numbers=none]
+snapshot concluido: SIM
+iniciador: Node 8
+relatorios recebidos: 15
+nodes: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+historicos globais identicos: SIM
+historico de referencia: [1, 2, 3, 4, 5]
+\end{lstlisting}
+
+Esses ensaios demonstram tanto a conclusão do protocolo na escala exigida quanto
+o aspecto essencial de consistência: uma mensagem que cruza o corte não desaparece
+nem é contada como recebida antes de seu envio, pois permanece registrada no
+estado do canal.
+
+\section{Inicialização, falha e reeleição}
+
+A seleção inicial também foi verificada diretamente: com três processos, todos
+identificaram o nó 3 como coordenador; com quinze processos, todos identificaram o
+nó 15. Portanto, a inicialização aplica o mesmo critério de prioridade da eleição
+do Valentão, em vez de fixar o nó 1.
+
+No cenário de falha com três processos, duas mensagens foram entregues nas
+sequências 1 e 2. Em seguida, o coordenador de maior ID, nó 3, foi encerrado
+abruptamente por \texttt{SIGKILL}. O nó 1 tentou enviar uma terceira mensagem; a
+falha de conexão fez com que ele preservasse o pedido e iniciasse a eleição. Os
+nós 1 e 2 elegeram o nó 2, que consultou os estados disponíveis, restaurou o
+prefixo $[1,2]$ e definiu 3 como próxima sequência. Depois do anúncio, o nó 1
+reenviou automaticamente o pedido pendente, entregue como sequência 3 nos dois
+sobreviventes.
 
 \begin{table}[H]
     \centering
@@ -78,64 +140,72 @@ Tabela~\ref{tab:teste-eleicao}.
         \textbf{Observação} & \textbf{Resultado} \\
         \midrule
         Histórico antes da falha & $[1,2]$ em todos os nós \\
-        Líder eleito entre os nós 2 e 3 & Nó 3 \\
-        Primeira sequência criada pelo novo líder & 1 \\
-        Próxima sequência esperada nos sobreviventes & 3 \\
-        Mensagem posterior entregue & Não \\
+        Líder inicial entre os nós 1, 2 e 3 & Nó 3 \\
+        Líder eleito entre os nós 1 e 2 & Nó 2 \\
+        Prefixo recuperado pelo novo líder & $[1,2]$ \\
+        Próxima sequência restaurada & 3 \\
+        Pedido que detectou a falha & Reenviado automaticamente \\
+        Históricos finais dos sobreviventes & $[1,2,3]$ e $[1,2,3]$ \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-Assim, a eleição isoladamente funciona no cenário ensaiado, mas a recuperação do
-serviço de ordem total não está completa. O novo coordenador precisa recuperar o
-maior número estável, por exemplo consultando um quórum de históricos antes de
-voltar a sequenciar.
+Também foi executado um teste controlado de difusão parcial. Um sobrevivente
+possuía $[1,2]$, enquanto o futuro líder possuía apenas $[1]$. A resposta de estado
+permitiu que o novo coordenador recuperasse a mensagem 2 e a retransmitisse antes
+de criar a sequência 3. Ambos terminaram com $[1,2,3]$. Os dois cenários demonstram
+continuidade e convergência da ordem total após falha do sequenciador.
 
 \section{Mensagem privada}
 
-O envio privado do nó 1 para o nó 2 abriu a conexão e retornou sucesso no emissor.
-Entretanto, o vetor do receptor permaneceu $[0,0,0]$ e nenhum histórico de recepção
-foi produzido. A causa, confirmada pela inspeção de \texttt{handle\_message}, é a
-ausência de um ramo para \texttt{PRIVATE\_MESSAGE}. Há ainda uma mensagem de log
-rotulada como privada dentro do ramo de mensagem de grupo ordenada. Portanto, o
-requisito funcional de conversa privada está apenas parcialmente construído.
+O unicast privado foi validado inicialmente com um teste unitário de dois nós. O
+nó 1 enviou a mensagem ao nó 2, que atualizou seu relógio de $[0,0]$ para $[1,1]$
+e produziu exatamente uma saída \texttt{[PRIVADA]}. O evento permaneceu no
+histórico local do emissor, enquanto os históricos local e global do receptor não
+foram indevidamente alterados.
+
+Em seguida, dois processos independentes trocaram a mensagem
+\texttt{mensagem-reservada-real} pelas portas 5001 e 5002. A mensagem apareceu uma
+vez no destino e nenhuma vez no emissor. Uma mensagem de grupo enviada como controle
+foi entregue globalmente nos dois processos e não recebeu o rótulo privado. O mesmo
+teste confirmou que mensagens de grupo remotas atualizam o vetor apenas uma vez.
 
 \section{Limitações}\label{sec:limitacoes}
 
 Além dos resultados anteriores, a versão atual possui as seguintes limitações:
 
 \begin{itemize}
-    \item \textbf{Estado global:} não há comando, marcador nem agregação de
-    snapshot; o requisito correspondente permanece pendente.
-    \item \textbf{Troca de líder:} contador e histórico do sequenciador não são
-    transferidos, interrompendo novas entregas após uma falha que ocorra depois de
-    qualquer mensagem já entregue.
-    \item \textbf{Mensagem privada:} o emissor envia o documento, mas o receptor
-    não trata seu tipo.
-    \item \textbf{Relógio vetorial:} em receptores remotos, uma mensagem de grupo
-    ordenada atualiza o vetor durante a entrega e novamente no despachante. O líder
-    local atualiza apenas uma vez, produzindo políticas de incremento diferentes.
-    \item \textbf{Líder inicial:} o nó 1 é fixado como coordenador inicial, mesmo
-    que o algoritmo do Valentão normalmente eleja o maior ID ativo.
-    \item \textbf{TCP:} cada conexão é lida com uma única chamada de até 65.536
-    bytes, sem enquadramento ou laço para remontar documentos maiores. Também não
-    há autenticação nem criptografia.
+    \item \textbf{Falha durante snapshot:} o conjunto de participantes é fixado no
+    início e não há timeout ou repetição de marcador. Se um participante falhar
+    durante a captura, o iniciador continuará aguardando seu relatório.
+    \item \textbf{Custo do snapshot:} na topologia completamente conectada, cada
+    nó envia um marcador aos demais, resultando em $N(N-1)$ marcadores, além dos
+    relatórios enviados ao iniciador.
+    \item \textbf{Recuperação da ordem:} o candidato aguarda respostas por três
+    segundos e prossegue apenas com os participantes responsivos. O protocolo
+    pressupõe que ao menos um sobrevivente possua cada sequência que chegou a ser
+    difundida; se detectar conflito ou lacuna na união, não abre o sequenciador.
+    A retransmissão percorre todo o histórico conhecido, cujo custo cresce com o
+    tempo de execução.
+    \item \textbf{TCP:} o fechamento da conexão delimita cada documento e o
+    receptor acumula blocos até o fim do fluxo, mas não há autenticação,
+    criptografia ou repetição automática após falha de envio.
     \item \textbf{Escalabilidade:} uma difusão requer uma conexão por destinatário
     e é feita sequencialmente pelo líder. O catálogo entregue termina no nó 15, e
     \texttt{start.sh} não valida pedidos acima desse limite.
     \item \textbf{Portabilidade:} a inicialização automática depende do terminal
     Konsole e de utilitários típicos de Linux. A execução manual continua possível
     em outros ambientes compatíveis com Python.
-    \item \textbf{Testes:} não existe suíte reproduzível em código-fonte no estado
-    atual do repositório, nem foram realizados ensaios entre máquinas físicas,
-    sob perda de conexão ou com mensagens de grande volume.
+    \item \textbf{Testes:} a suíte versionada cobre FIFO, snapshot, mensagem
+    privada e recuperação da ordem, mas os ensaios em maior escala ainda são
+    executados externamente. Também não foram realizados ensaios entre máquinas
+    físicas, sob perda de conexão intermitente ou com mensagens de grande volume.
 \end{itemize}
 
 \section{Síntese dos requisitos}
 
-A Tabela~\ref{tab:requisitos} resume a cobertura verificada. ``Parcial'' indica
-que existe uma parte observável do requisito, mas ao menos um cenário obrigatório
-ainda falha.
+A Tabela~\ref{tab:requisitos} resume a cobertura verificada por inspeção e pelos
+ensaios descritos neste capítulo.
 
 \begin{table}[H]
     \centering
@@ -146,16 +216,17 @@ ainda falha.
         \textbf{Req.} & \textbf{Situação} & \textbf{Evidência} \\
         \midrule
         R1 & Atendido & Difusão TCP entregue a todos em 3, 8 e 15 nós. \\
-        R2 & Parcial & Chat de grupo funciona; recepção privada está ausente. \\
+        R2 & Atendido & Mensagens privadas e de grupo foram entregues por TCP. \\
         R3 & Atendido & Inicialização e entrega verificadas com 3, 8 e 15 processos. \\
-        R4 & Parcial & Históricos são idênticos no caminho normal; troca de líder
-        perde continuidade da sequência. \\
-        R5 & Parcial & Terminal oferece envio, ordens e estado, mas o unicast
-        privado não é processado no destino. \\
-        R6 & Não atendido & Não há captura nem exibição de estado global. \\
+        R4 & Atendido & Históricos são idênticos no caminho normal e após queda,
+        recuperação e substituição do sequenciador. \\
+        R5 & Atendido & Terminal oferece unicast, grupo, ordens local e global,
+        estado, lista de nós e snapshot. \\
+        R6 & Atendido & Chandy--Lamport registra estados locais e canais; o comando
+        foi concluído com 3 e 15 processos e registrou mensagem em trânsito. \\
         R7 & Atendido & Itens documentais do roteiro são cobertos neste relatório. \\
-        R8 & Parcial & O maior ID ativo é eleito, mas o novo líder não recupera a
-        sequência anterior. \\
+        R8 & Atendido & O maior ID ativo é eleito, recupera o prefixo global e
+        anuncia sua coordenação antes de retomar os pedidos. \\
         \bottomrule
     \end{tabular}
 \end{table}

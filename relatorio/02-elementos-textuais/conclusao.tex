@@ -13,14 +13,21 @@ a ordem total é decidida pelo sequenciador, como previsto pela abordagem B. O
 monitoramento por heartbeat e a eleição do Valentão conseguiram selecionar o maior
 ID ativo após a queda do líder em um cenário com três nós. A arquitetura, portanto,
 oferece uma base concreta para estudar comunicação, relógios lógicos, difusão e
-coordenação.
+coordenação. O comando \texttt{snapshot} acrescenta uma fotografia consistente dos
+estados locais e canais sem suspender a aplicação. Nos ensaios, a captura agregou
+3 e 15 relatórios, e o cenário controlado preservou corretamente uma mensagem em
+trânsito.
 
-O trabalho ainda não satisfaz integralmente o roteiro. A recepção de mensagens
-privadas e a captura de estado global não foram implementadas, e o contador global
-não sobrevive à substituição do coordenador. A prioridade de evolução é sincronizar
-o estado do novo líder antes de reabrir o sequenciamento, corrigir o despachante de
-mensagens privadas e implementar Chandy--Lamport sobre canais FIFO bem definidos.
-Depois dessas correções, deve ser adicionada uma suíte automatizada versionada com
-cenários de causalidade, concorrência, falha e snapshot. Essa distinção entre
-funcionalidades verificadas e pendências evita atribuir ao protótipo garantias que
-a implementação atual ainda não fornece.
+O R6 é atendido pela implementação de Chandy--Lamport, apoiada pela numeração FIFO
+dos canais lógicos e pela agregação automática dos fragmentos no iniciador. A
+continuidade da ordem total também foi demonstrada: depois da queda do coordenador
+inicial, nó 3, o nó 2 recuperou o prefixo global, adotou a próxima sequência
+correta e entregou o pedido que havia detectado a falha. A comunicação privada foi
+validada separadamente e não interfere na ordem global das mensagens de grupo.
+
+Os requisitos funcionais do roteiro foram demonstrados nos cenários executados.
+Como evolução, recomenda-se reduzir o custo de retransmitir todo o histórico na
+recuperação, adicionar persistência opcional e tratar a falha de um participante
+durante um snapshot com timeout e nova configuração de membros. Essas limitações
+não alteraram a convergência nos testes apresentados, mas delimitam o comportamento
+do protótipo sob falhas sucessivas ou execuções prolongadas.

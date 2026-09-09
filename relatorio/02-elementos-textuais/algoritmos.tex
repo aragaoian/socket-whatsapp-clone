@@ -28,8 +28,10 @@ abordagem B do roteiro.
 
 \section{Ordem total por sequenciador}\label{sec:ordem-total}
 
-O líder inicial é configurado como o nó 1. Uma mensagem de grupo percorre as
-etapas a seguir:
+O líder inicial é determinado como o maior ID ativo do catálogo. Dessa forma, o
+critério do algoritmo do Valentão também é aplicado na inicialização, sem depender
+de uma primeira falha para selecionar o participante de maior prioridade. Uma
+mensagem de grupo percorre as etapas a seguir:
 
 \begin{enumerate}
     \item O emissor incrementa sua posição no relógio vetorial, incrementa o
@@ -104,9 +106,16 @@ A eleição segue o algoritmo do Valentão. Seu passo a passo na implementação
     \item Uma conexão bem-sucedida é tratada como indicação de que o nó superior
     continuará a eleição. Ao receber a solicitação, todo nó de ID superior inicia
     sua própria rodada.
-    \item Um participante sem nó superior acessível declara-se coordenador.
-    \item O vencedor difunde \texttt{COORDINATOR}; os receptores atualizam
-    \texttt{leader\_id} e encerram o estado local de eleição.
+    \item Um participante sem nó superior acessível torna-se candidato a
+    coordenador, mas ainda não libera novas sequências.
+    \item O candidato envia \texttt{ORDER\_STATE\_REQUEST} aos sobreviventes. Cada
+    resposta contém histórico global, buffer e próxima entrega esperada.
+    \item O candidato une as mensagens pelo número global, rejeita conflitos ou
+    lacunas, retransmite o prefixo contíguo a todos e define a próxima sequência
+    como o maior número recuperado mais um.
+    \item Somente após a recuperação, o vencedor difunde \texttt{COORDINATOR}; os
+    receptores atualizam \texttt{leader\_id}, encerram a eleição e reenviam pedidos
+    que haviam falhado ao acessar o líder anterior.
 \end{enumerate}
 
 Consequentemente, o maior ID ativo alcançado vence, conforme a propriedade do
@@ -114,7 +123,25 @@ algoritmo do Valentão \cite{tanenbaum2007}. A implementação simplifica o prot
 não há mensagem \texttt{OK} separada nem timeout específico para aguardar o anúncio;
 o sucesso da conexão de eleição exerce o papel da confirmação.
 
-\section{Estado global: escolha e situação atual}\label{sec:estado-global}
+\subsection{Continuidade da ordem após falha}
+
+Durante a recuperação, o novo coordenador permanece com
+\texttt{leader\_ready = False}; solicitações locais que chegarem nesse intervalo
+ficam em uma fila. Para reconstruir a ordem, ele considera tanto mensagens já
+entregues quanto mensagens ainda presentes nos buffers dos nós ativos. Cópias com
+o mesmo número devem possuir origem, sequência local, horário, vetor e conteúdo
+idênticos. Qualquer divergência é tratada como conflito e impede a abertura do
+sequenciador.
+
+Se a união contém o prefixo $1,2,\ldots,k$, o candidato retransmite essas mensagens
+em ordem. Receptores que já as entregaram descartam as duplicatas; receptores
+atrasados preenchem suas lacunas e avançam. Em seguida, o contador do líder é
+ajustado para $k+1$. Um pedido cujo envio ao líder antigo falhou é mantido no nó de
+origem e reenviado automaticamente após \texttt{COORDINATOR}. Assim, a primeira
+mensagem nova recebe $k+1$, sem reiniciar a numeração nem divergir dos históricos
+existentes.
+
+\section{Estado global por Chandy--Lamport}\label{sec:estado-global}
 
 Um estado global reúne os estados locais e as mensagens em trânsito de modo
 compatível com a causalidade. O algoritmo de Chandy--Lamport é uma escolha adequada
@@ -122,25 +149,41 @@ porque não exige relógio físico sincronizado nem a interrupção da aplicaç�
 meio de marcadores, ele registra um corte consistente da execução
 \cite{chandy1985}.
 
-Para este projeto, a implementação planejada deveria seguir estas etapas:
+O comando \texttt{snapshot}, disponível em qualquer nó ativo, executa as seguintes
+etapas:
 
 \begin{enumerate}
-    \item O iniciador registra relógio vetorial, líder, histórico local, histórico
-    global, próxima sequência esperada e estado dos participantes; depois envia um
-    marcador a todos os canais de saída.
+    \item O iniciador cria um identificador formado por seu ID e pelo tempo local,
+    fixa o conjunto de participantes ativos e registra seu estado. O registro inclui
+    relógio vetorial, líder, históricos local e global, buffer de entrega, próximas
+    sequências e lista de nós ativos. Em seguida, envia um marcador a todos os
+    canais de saída.
     \item Ao receber o primeiro marcador, cada nó registra o próprio estado, marca
     o canal de chegada como vazio e encaminha marcadores aos demais nós.
     \item Até receber o marcador de cada origem, o nó registra como estado daquele
     canal as mensagens de aplicação recebidas após seu estado local.
-    \item Cada nó envia o fragmento concluído ao iniciador, que agrega e exibe o
-    snapshot.
+    \item Quando todos os canais de entrada são fechados por marcadores, o nó envia
+    um \texttt{SNAPSHOT\_REPORT} ao iniciador. Este agrega um relatório de cada
+    participante e exibe o estado global no terminal.
 \end{enumerate}
 
-Entretanto, a versão analisada não declara mensagens de marcador, não mantém
-sessões de snapshot e não oferece comando para iniciar ou exibir a captura. Logo,
-o requisito de estado global ainda \textbf{não está implementado}. Além disso, o
-transporte abre uma nova conexão TCP por documento. Embora TCP seja FIFO dentro de
-uma conexão, conexões distintas entre o mesmo par não formam automaticamente um
-canal FIFO único. Uma implementação correta de Chandy--Lamport deve manter
-conexões persistentes por par ou numerar mensagens e marcadores por canal antes de
-aplicar o protocolo.
+O transporte abre uma conexão TCP nova para cada documento. Como TCP só garante
+FIFO dentro de uma mesma conexão, a implementação acrescenta uma camada de canal
+lógico. Cada emissor TCP mantém, para cada destino, um contador protegido por lock
+e anexa \texttt{channel\_origin} e \texttt{channel\_sequence}. O receptor mantém a
+próxima posição esperada por emissor e retém conexões adiantadas até preencher as
+lacunas. Assim, mensagens de aplicação e marcadores são entregues em FIFO no canal
+lógico, que é a premissa necessária ao algoritmo.
+
+É importante distinguir a origem de aplicação da origem de transporte. Quando o
+líder retransmite uma mensagem escrita pelo nó 3, o campo \texttt{origin} continua
+igual a 3, mas \texttt{channel\_origin} identifica o líder que realizou a conexão.
+O estado de canal do snapshot usa o segundo campo. Sem essa separação, sequências
+do líder seriam atribuídas incorretamente aos autores originais e criariam lacunas
+fictícias.
+
+Ao concluir, o iniciador imprime uma linha por nó com líder observado, relógio
+vetorial, quantidade de eventos locais, sequências globais entregues e próxima
+entrega esperada. Canais não vazios são apresentados com origem, destino,
+quantidade e tipos das mensagens em trânsito. O algoritmo não bloqueia o envio de
+mensagens da aplicação durante a captura.

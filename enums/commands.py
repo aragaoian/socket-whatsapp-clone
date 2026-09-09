@@ -8,5 +8,6 @@ class Commands(Enum):
     GLOBAL = "global"
     STATUS = "status"
     LIST = "list"
+    SNAPSHOT = "snapshot"
     HELP = "help"
     EXIT = "exit"

@@ -5,8 +5,9 @@
 A aplicação representa um bate-papo no qual cada nó corresponde a um participante.
 O escopo implementado prioriza o middleware: inicialização de múltiplos processos,
 serialização das mensagens, comunicação ponto a ponto, difusão ao grupo, registro
-das ordens local e global, relógio vetorial, monitoramento e eleição. A interface é
-textual, suficiente para observar os estados internos relevantes ao experimento.
+das ordens local e global, relógio vetorial, monitoramento, eleição e snapshot
+distribuído. A interface é textual, suficiente para observar os estados internos
+relevantes ao experimento.
 
 O número de nós é informado em tempo de execução. O arquivo
 \texttt{json/nodes.json} contém 15 entradas, e cada processo lê apenas as primeiras
@@ -66,12 +67,15 @@ A Tabela~\ref{tab:componentes} relaciona as principais unidades do projeto.
         \texttt{lauch\_node.py} & Lê os argumentos \texttt{--id} e
         \texttt{--count}, carrega o catálogo e instancia um nó. \\
         \texttt{services/node.py} & Mantém relógios, históricos, buffer,
-        sequências, estado dos pares, interface de comandos, heartbeat e eleição. \\
+        sequências, estado dos pares, interface de comandos, heartbeat, eleição,
+        recuperação da ordem e coordenação do snapshot. \\
         \texttt{services/socket.py} & Abre o servidor TCP, aceita conexões e envia
         documentos JSON. \\
         \texttt{services/terminal.py} & Mantém uma área de rolagem e uma linha
         fixa de entrada para a interface textual. \\
         \texttt{models/node\_dto.py} & Define o formato lógico das mensagens. \\
+        \texttt{models/snapshot\_session.py} & Mantém os canais em gravação,
+        estados de canal e relatórios de uma captura. \\
         \texttt{json/nodes.json} & Catálogo estático com IDs, endereço IP e portas. \\
         \texttt{start.sh} & Abre $N$ processos em terminais Konsole separados. \\
         \bottomrule
@@ -109,11 +113,16 @@ As mensagens são serializadas como objetos JSON derivados de
 texto. Conforme a operação, também são informados destino, sequência local e
 sequência global. Os tipos declarados incluem mensagem privada, pedido de mensagem
 de grupo, mensagem de grupo ordenada, heartbeat, confirmação de heartbeat, eleição,
-coordenador e atualização da lista de nós.
+coordenador, atualização da lista de nós, marcador e relatório de snapshot, pedido
+e resposta de estado da ordem global. Os
+campos \texttt{channel\_origin} e \texttt{channel\_sequence} identificam o emissor
+TCP e a posição da mensagem no canal lógico sem confundi-lo com o autor original
+de uma mensagem retransmitida pelo líder.
 
 Em cada envio, \texttt{Socket.send} abre uma conexão TCP, transmite um documento
-JSON e fecha a conexão. O receptor aceita a conexão, lê até 65.536 bytes e delega
-o documento ao nó \cite{python-socket}. A escolha por unicast TCP foi motivada pela entrega confiável e
+JSON e fecha a conexão. O receptor aceita a conexão, lê blocos de até 65.536 bytes
+até o fechamento do emissor e então delega o documento completo ao nó
+\cite{python-socket}. A escolha por unicast TCP foi motivada pela entrega confiável e
 pela simplicidade de endereçamento em uma única máquina. Para difusão, o líder
 itera sobre o catálogo e envia uma cópia para cada participante. Em comparação ao
 multicast UDP, essa solução evita implementar confirmação e retransmissão de
@@ -185,12 +194,15 @@ da interface são descritos na Tabela~\ref{tab:comandos}.
         \texttt{global} & Exibe as mensagens de grupo já entregues em ordem total. \\
         \texttt{status} & Exibe líder, vetor, próxima sequência e históricos. \\
         \texttt{list} & Exibe endereço e estado ativo/inativo dos participantes. \\
+        \texttt{snapshot} & Inicia Chandy--Lamport e exibe o estado global após
+        receber os fragmentos dos nós ativos. \\
         \texttt{help} e \texttt{exit} & Mostram ajuda e encerram o processo. \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-O comando \texttt{send} está presente no emissor, mas, conforme discutido na
-Seção~\ref{sec:limitacoes}, o receptor ainda não despacha o tipo
-\texttt{PRIVATE\_MESSAGE}. Assim, ele não deve ser considerado funcional na versão
-avaliada.
+No comando \texttt{send}, somente o emissor registra o evento em sua ordem local.
+O documento \texttt{PRIVATE\_MESSAGE} é encaminhado ao endereço do destino, que
+combina o vetor recebido com o seu relógio, incrementa a própria posição e exibe a
+mensagem com o rótulo \texttt{[PRIVADA]}. Como se trata de unicast, ela não recebe
+sequência global nem aparece no histórico dos demais participantes.

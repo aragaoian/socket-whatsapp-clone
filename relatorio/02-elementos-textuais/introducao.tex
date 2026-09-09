@@ -25,21 +25,23 @@ abordagem de \textbf{sequenciador}. Um coordenador atribui números globais
 monotônicos e redifunde as mensagens; relógios vetoriais permanecem anexados aos
 eventos para registrar a evolução causal. Como o coordenador é um ponto crítico,
 o protótipo emprega batimentos de saúde e o algoritmo do Valentão para eleição de
-um substituto. Essa opção reduz a complexidade do caminho normal de entrega, ao
-custo de exigir tratamento cuidadoso para a falha do líder.
+um substituto. Para o estado global, emprega-se Chandy--Lamport sobre canais
+lógicos FIFO identificados e numerados na camada de aplicação. Essa opção permite
+registrar estados locais e mensagens em trânsito sem interromper os participantes.
 
 O objetivo deste relatório é descrever fielmente a arquitetura encontrada no
 repositório, explicar seus algoritmos e registrar os resultados verificáveis. Por
 isso, além das funcionalidades demonstradas, são apresentadas as limitações ainda
-existentes. Em especial, a versão analisada não implementa a captura de estado
-global e não conclui o recebimento de mensagens privadas, embora a interface de
-envio já exista.
+existentes. A versão analisada mantém a ordem total durante a substituição do líder
+por meio da consulta aos históricos e buffers dos sobreviventes, seguida da
+retransmissão do prefixo global antes de liberar novas sequências. Comunicação
+privada, comunicação de grupo e snapshot também estão operantes.
 
 \section{Organização do relatório}
 
 O Capítulo~\ref{chap:projeto} descreve equipe, tecnologias, arquitetura, rede e
 execução. O Capítulo~\ref{chap:algoritmos} detalha relógio vetorial, ordem total,
-eleição e a alternativa planejada para estado global. O
+eleição e o algoritmo implementado para estado global. O
 Capítulo~\ref{chap:avaliacao} apresenta os cenários de validação e as limitações.
 Por fim, o Capítulo~\ref{chap:conclusao} sintetiza os resultados e os requisitos
 pendentes.
