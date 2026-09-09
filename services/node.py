@@ -88,9 +88,7 @@ class Node:
         }
         self.snapshot_lock = Lock()
         self.snapshots: dict[str, SnapshotSession] = {}
-        self.completed_snapshots: dict[
-            str, dict[int, dict[str, object]]
-        ] = {}
+        self.completed_snapshots: dict[str, dict[int, dict[str, object]]] = {}
         self.tcp_server = None
 
     def close(self) -> None:
@@ -360,9 +358,7 @@ class Node:
 
         self.leader_id = self.id
         self.leader_ready = False
-        print_message(
-            f"[RECUPERAÇÃO] Node {self.id} reconstruindo a ordem global."
-        )
+        print_message(f"[RECUPERAÇÃO] Node {self.id} reconstruindo a ordem global.")
 
         if not self.recover_global_order():
             print_message(
@@ -402,9 +398,7 @@ class Node:
         with self.delivery_lock:
             return {
                 "next_delivery_sequence": self.next_delivery_sequence,
-                "global_history": [
-                    asdict(message) for message in self.global_history
-                ],
+                "global_history": [asdict(message) for message in self.global_history],
                 "delivery_buffer": {
                     str(sequence): asdict(message)
                     for sequence, message in self.delivery_buffer.items()
@@ -419,9 +413,7 @@ class Node:
         with self.order_recovery_condition:
             self.order_recovery_id = recovery_id
             self.order_recovery_expected = expected
-            self.order_recovery_responses = {
-                self.id: self.capture_order_state()
-            }
+            self.order_recovery_responses = {self.id: self.capture_order_state()}
 
         with self.vector_clock_lock:
             vector_clock = self.vector_clock.copy()
@@ -453,7 +445,9 @@ class Node:
                 ),
                 timeout=ORDER_RECOVERY_TIMEOUT,
             )
-            missing = self.order_recovery_expected - self.order_recovery_responses.keys()
+            missing = (
+                self.order_recovery_expected - self.order_recovery_responses.keys()
+            )
             states = self.order_recovery_responses.copy()
             self.order_recovery_id = None
             self.order_recovery_expected = set()
@@ -643,9 +637,7 @@ class Node:
                 "next_global_sequence": self.next_global_sequence,
                 "next_delivery_sequence": self.next_delivery_sequence,
                 "local_history": [asdict(message) for message in self.local_history],
-                "global_history": [
-                    asdict(message) for message in self.global_history
-                ],
+                "global_history": [asdict(message) for message in self.global_history],
                 "delivery_buffer": {
                     str(sequence): asdict(message)
                     for sequence, message in self.delivery_buffer.items()
@@ -769,9 +761,7 @@ class Node:
                 if channel_origin in session.recording_channels:
                     session.channel_states[channel_origin].append(message_state)
 
-    def snapshot_report(
-        self, session: SnapshotSession
-    ) -> dict[str, object]:
+    def snapshot_report(self, session: SnapshotSession) -> dict[str, object]:
         return {
             "node_id": self.id,
             "local_state": session.local_state,

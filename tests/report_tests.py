@@ -9,9 +9,9 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 ROOT = Path(__file__).resolve().parent
 EVIDENCE_DIR = ROOT / "evidencias_relatorio"
@@ -20,9 +20,7 @@ GLOBAL_RE = re.compile(
     r"\[GLOBAL (\d+)\] Node (\d+) \(local (\d+)\) \| "
     r"VClock (\[[^\]]*\]): (.*)"
 )
-LOCAL_RE = re.compile(
-    r"\[LOCAL (\d+)\] para (.+?) \| VClock (\[[^\]]*\]): (.*)"
-)
+LOCAL_RE = re.compile(r"\[LOCAL (\d+)\] para (.+?) \| VClock (\[[^\]]*\]): (.*)")
 STATUS_RE = re.compile(
     r"Node (\d+) \| líder (\d+) \| VClock (\[[^\]]*\]) \| "
     r"próxima entrega global (\d+)"
@@ -243,7 +241,7 @@ class Cluster:
         self.count = count
         self.nodes: dict[int, NodeProcess] = {}
 
-    def __enter__(self) -> "Cluster":
+    def __enter__(self) -> Cluster:
         assert_ports_free(self.count)
         try:
             for node_id in range(1, self.count + 1):
@@ -302,10 +300,17 @@ def same_histories(nodes: Iterable[NodeProcess]) -> bool:
     return all(history == reference for history in histories[1:])
 
 
-def wait_history(cluster: Cluster, expected: int, node_ids: Iterable[int] | None = None, timeout: float = 10.0) -> None:
+def wait_history(
+    cluster: Cluster,
+    expected: int,
+    node_ids: Iterable[int] | None = None,
+    timeout: float = 10.0,
+) -> None:
     ids = list(node_ids or cluster.nodes.keys())
     wait_for(
-        lambda: all(len(global_history(cluster.nodes[node_id])) >= expected for node_id in ids),
+        lambda: all(
+            len(global_history(cluster.nodes[node_id])) >= expected for node_id in ids
+        ),
         timeout=timeout,
         description=f"{expected} global messages on nodes {ids}",
     )
@@ -347,7 +352,9 @@ def scenario_order3() -> Path:
     visual("[TESTE] Subindo 3 processos independentes nas portas 5001-5003...")
     with Cluster(3) as c:
         ECHO_NODE_OUTPUT = False
-        visual("[TESTE] Nós ativos. Liberando 3 comandos sendall pela mesma barreira...")
+        visual(
+            "[TESTE] Nós ativos. Liberando 3 comandos sendall pela mesma barreira..."
+        )
         c.send_concurrent(
             {
                 1: "sendall CONCORRENTE-N1",
@@ -356,14 +363,18 @@ def scenario_order3() -> Path:
             }
         )
         wait_history(c, 3, timeout=8)
-        visual("[TESTE] As 3 mensagens foram entregues. Executando 'global' nos três nós...")
+        visual(
+            "[TESTE] As 3 mensagens foram entregues. Executando 'global' nos três nós..."
+        )
         ECHO_NODE_OUTPUT = True
         for i in range(1, 4):
             c.send(i, "global")
         time.sleep(0.4)
 
         histories = {i: global_history(c.nodes[i]) for i in range(1, 4)}
-        passed = same_histories(c.nodes.values()) and all(len(h) == 3 for h in histories.values())
+        passed = same_histories(c.nodes.values()) and all(
+            len(h) == 3 for h in histories.values()
+        )
         body = [
             "Objetivo: demonstrar comunicação de grupo e ordem total em três processos independentes.",
             "Os três comandos sendall foram liberados por uma barreira de threads do testador.",
@@ -381,7 +392,9 @@ def scenario_order3() -> Path:
         )
         if not passed:
             raise AssertionError("Históricos globais divergiram no cenário de 3 nós")
-        return write_evidence("01_ordem_total_3_nos.txt", "EVIDÊNCIA 1 — ORDEM TOTAL COM 3 NÓS", body)
+        return write_evidence(
+            "01_ordem_total_3_nos.txt", "EVIDÊNCIA 1 — ORDEM TOTAL COM 3 NÓS", body
+        )
 
 
 def scenario_order15() -> Path:
@@ -399,7 +412,9 @@ def scenario_order15() -> Path:
         )
         wait_history(c, 5, timeout=15)
         histories = {i: global_history(c.nodes[i]) for i in range(1, 16)}
-        passed = same_histories(c.nodes.values()) and all(len(h) == 5 for h in histories.values())
+        passed = same_histories(c.nodes.values()) and all(
+            len(h) == 5 for h in histories.values()
+        )
         reference = histories[1]
         body = [
             "Objetivo: demonstrar inicialização configurável com 15 processos e convergência da ordem global.",
@@ -412,7 +427,9 @@ def scenario_order15() -> Path:
         ]
         reference_compact = [message.compact() for message in reference]
         if VISUAL:
-            visual("[TESTE] Comparando automaticamente as filas globais dos 15 processos:")
+            visual(
+                "[TESTE] Comparando automaticamente as filas globais dos 15 processos:"
+            )
         for i in range(1, 16):
             current = [message.compact() for message in histories[i]]
             comparison = (
@@ -431,7 +448,9 @@ def scenario_order15() -> Path:
         )
         if not passed:
             raise AssertionError("Históricos globais divergiram no cenário de 15 nós")
-        return write_evidence("02_ordem_total_15_nos.txt", "EVIDÊNCIA 2 — ORDEM TOTAL COM 15 NÓS", body)
+        return write_evidence(
+            "02_ordem_total_15_nos.txt", "EVIDÊNCIA 2 — ORDEM TOTAL COM 15 NÓS", body
+        )
 
 
 def scenario_private() -> Path:
@@ -440,7 +459,10 @@ def scenario_private() -> Path:
         visual("[TESTE] Node 1: send 2 PRIVADA-N1-PARA-N2")
         c.send(1, "send 2 PRIVADA-N1-PARA-N2")
         wait_for(
-            lambda: any("[PRIVADA]" in line and "PRIVADA-N1-PARA-N2" in line for line in c.nodes[2].snapshot_lines()),
+            lambda: any(
+                "[PRIVADA]" in line and "PRIVADA-N1-PARA-N2" in line
+                for line in c.nodes[2].snapshot_lines()
+            ),
             timeout=5,
             description="private message at node 2",
         )
@@ -459,7 +481,11 @@ def scenario_private() -> Path:
             for line in c.nodes[2].snapshot_lines()
             if "[PRIVADA]" in line and "PRIVADA-N1-PARA-N2" in line
         )
-        passed = private_counts == {1: 0, 2: 1, 3: 0} and global_counts == {1: 0, 2: 0, 3: 0}
+        passed = private_counts == {1: 0, 2: 1, 3: 0} and global_counts == {
+            1: 0,
+            2: 0,
+            3: 0,
+        }
         body = [
             "Comando emitido pelo Node 1: send 2 PRIVADA-N1-PARA-N2",
             "",
@@ -472,7 +498,9 @@ def scenario_private() -> Path:
         ]
         if not passed:
             raise AssertionError("Falha no cenário de mensagem privada")
-        return write_evidence("03_mensagem_privada.txt", "EVIDÊNCIA 3 — MENSAGEM PRIVADA UNICAST", body)
+        return write_evidence(
+            "03_mensagem_privada.txt", "EVIDÊNCIA 3 — MENSAGEM PRIVADA UNICAST", body
+        )
 
 
 def scenario_causal() -> Path:
@@ -493,7 +521,9 @@ def scenario_causal() -> Path:
         reference = histories[1]
         a = next(m for m in reference if m.message == "CAUSAL-A")
         b = next(m for m in reference if m.message == "CAUSAL-B")
-        dominates = all(x <= y for x, y in zip(a.vector, b.vector)) and a.vector != b.vector
+        dominates = (
+            all(x <= y for x, y in zip(a.vector, b.vector)) and a.vector != b.vector
+        )
         ordered = a.sequence < b.sequence
         passed = same_histories(c.nodes.values()) and dominates and ordered
         body = [
@@ -514,7 +544,9 @@ def scenario_causal() -> Path:
         body.extend(["", f"RESULTADO: {'APROVADO' if passed else 'FALHOU'}"])
         if not passed:
             raise AssertionError("Falha no cenário de dependência causal")
-        return write_evidence("04_dependencia_causal.txt", "EVIDÊNCIA 4 — DEPENDÊNCIA CAUSAL", body)
+        return write_evidence(
+            "04_dependencia_causal.txt", "EVIDÊNCIA 4 — DEPENDÊNCIA CAUSAL", body
+        )
 
 
 def extract_snapshot_block(lines: list[str]) -> list[str]:
@@ -562,7 +594,11 @@ def scenario_snapshot() -> Path:
         ]
         if not passed:
             raise AssertionError("Snapshot não agregou os três participantes")
-        return write_evidence("05_snapshot_estado_global.txt", "EVIDÊNCIA 5 — ESTADO GLOBAL (CHANDY–LAMPORT)", body)
+        return write_evidence(
+            "05_snapshot_estado_global.txt",
+            "EVIDÊNCIA 5 — ESTADO GLOBAL (CHANDY–LAMPORT)",
+            body,
+        )
 
 
 def scenario_election() -> Path:
@@ -578,11 +614,16 @@ def scenario_election() -> Path:
         c.nodes[3].stop(force=True)
         time.sleep(0.25)
         # This send attempts to contact the dead coordinator and triggers election immediately.
-        visual("[TESTE] Node 1 tenta sendall APOS-REELEICAO; a falha deve disparar a eleição...")
+        visual(
+            "[TESTE] Node 1 tenta sendall APOS-REELEICAO; a falha deve disparar a eleição..."
+        )
         c.send(1, "sendall APOS-REELEICAO")
 
         wait_for(
-            lambda: any("[COORDENADOR] Node 2 é o novo líder." in line for line in c.nodes[2].snapshot_lines()),
+            lambda: any(
+                "[COORDENADOR] Node 2 é o novo líder." in line
+                for line in c.nodes[2].snapshot_lines()
+            ),
             timeout=10,
             description="Node 2 becoming coordinator",
         )
@@ -626,7 +667,15 @@ def scenario_election() -> Path:
         relevant = []
         for node_id in (1, 2):
             for line in c.nodes[node_id].snapshot_lines():
-                if any(tag in line for tag in ("[ELEIÇÃO]", "[RECUPERAÇÃO]", "[COORDENADOR]", "Líder não acessível")):
+                if any(
+                    tag in line
+                    for tag in (
+                        "[ELEIÇÃO]",
+                        "[RECUPERAÇÃO]",
+                        "[COORDENADOR]",
+                        "Líder não acessível",
+                    )
+                ):
                     relevant.append(f"Node {node_id}: {line}")
         # Deduplicate repeated status/noise while preserving order.
         relevant = list(dict.fromkeys(relevant))
@@ -686,7 +735,9 @@ def scenario_unit_tests() -> Path:
         "",
         f"RESULTADO: {'APROVADO' if passed else 'FALHOU'}",
     ]
-    path = write_evidence("07_testes_unitarios.txt", "EVIDÊNCIA 7 — SUÍTE AUTOMATIZADA", body)
+    path = write_evidence(
+        "07_testes_unitarios.txt", "EVIDÊNCIA 7 — SUÍTE AUTOMATIZADA", body
+    )
     if not passed:
         raise AssertionError("A suíte unittest falhou")
     return path

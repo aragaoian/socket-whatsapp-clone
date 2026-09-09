@@ -46,9 +46,7 @@ class OrderRecoveryTest(unittest.TestCase):
     def route_message(self, _host: str, port: int, payload: dict) -> None:
         if port == self.nodes[1].port:
             raise ConnectionRefusedError("líder anterior indisponível")
-        self.nodes_by_port[port].handle_message(
-            json.dumps(payload).encode("utf-8")
-        )
+        self.nodes_by_port[port].handle_message(json.dumps(payload).encode("utf-8"))
 
     @staticmethod
     def ordered_message(sequence: int, origin: int) -> NodeDto:

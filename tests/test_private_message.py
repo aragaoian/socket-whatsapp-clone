@@ -42,9 +42,7 @@ class PrivateMessageTest(unittest.TestCase):
         self.print_patch.stop()
 
     def route_message(self, _host: str, port: int, payload: dict) -> None:
-        self.nodes_by_port[port].handle_message(
-            json.dumps(payload).encode("utf-8")
-        )
+        self.nodes_by_port[port].handle_message(json.dumps(payload).encode("utf-8"))
 
     def printed_messages(self) -> list[str]:
         return [call.args[0] for call in self.print_message.call_args_list]
@@ -69,10 +67,7 @@ class PrivateMessageTest(unittest.TestCase):
         self.nodes[1].handle_command("sendall mensagem do grupo")
 
         self.assertFalse(
-            any(
-                message.startswith("[PRIVADA]")
-                for message in self.printed_messages()
-            )
+            any(message.startswith("[PRIVADA]") for message in self.printed_messages())
         )
         self.assertEqual(self.nodes[2].vector_clock, [1, 1])
         self.assertEqual(

@@ -22,7 +22,7 @@ Write-Host 'IMPORTANTE: feche antes qualquer execução feita por start.ps1 para
 Write-Host
 
 $env:PYTHONUTF8 = '1'
-$runnerArgs = @((Join-Path $ProjectDir 'report_tests.py'), $Scenario)
+$runnerArgs = @((Join-Path $ProjectDir '/tests/report_tests.py'), $Scenario)
 if ($Visual) { $runnerArgs += '--visual' }
 & $pythonExe @runnerArgs
 $exitCode = $LASTEXITCODE

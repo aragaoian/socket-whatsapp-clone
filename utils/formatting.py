@@ -58,9 +58,7 @@ def format_node_list(nodes: list[NodeConfig]) -> str:
     return "\n".join(lines)
 
 
-def format_snapshot(
-    snapshot_id: str, reports: dict[int, dict[str, object]]
-) -> str:
+def format_snapshot(snapshot_id: str, reports: dict[int, dict[str, object]]) -> str:
     lines = [f"--- ESTADO GLOBAL {snapshot_id} ---"]
 
     for node_id in sorted(reports):

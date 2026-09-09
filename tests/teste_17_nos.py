@@ -28,8 +28,10 @@ def main() -> int:
         cluster.send(17, "status")
 
         wait_for(
-            lambda: latest_status(cluster.nodes[1]) is not None
-            and latest_status(cluster.nodes[17]) is not None,
+            lambda: (
+                latest_status(cluster.nodes[1]) is not None
+                and latest_status(cluster.nodes[17]) is not None
+            ),
             timeout=5,
             description="status dos Nodes 1 e 17",
         )
@@ -41,10 +43,16 @@ def main() -> int:
         lider_ok = status_1[1] == 17 and status_17[1] == 17
         vetor_ok = len(status_1[2]) == 17 and len(status_17[2]) == 17
 
-        print(f"[{'OK' if lider_ok else 'FALHOU'}] Node 17 reconhecido como líder inicial.")
-        print(f"[{'OK' if vetor_ok else 'FALHOU'}] Relógio vetorial possui 17 posições.")
+        print(
+            f"[{'OK' if lider_ok else 'FALHOU'}] Node 17 reconhecido como líder inicial."
+        )
+        print(
+            f"[{'OK' if vetor_ok else 'FALHOU'}] Relógio vetorial possui 17 posições."
+        )
 
-        print("[TESTE] Enviando mensagens de grupo concorrentes pelos Nodes 1, 9 e 17...")
+        print(
+            "[TESTE] Enviando mensagens de grupo concorrentes pelos Nodes 1, 9 e 17..."
+        )
         cluster.send_concurrent(
             {
                 1: "sendall ESCALA17-N1",
@@ -56,8 +64,7 @@ def main() -> int:
         wait_history(cluster, 3, timeout=20)
 
         historicos = {
-            node_id: global_history(cluster.nodes[node_id])
-            for node_id in range(1, 18)
+            node_id: global_history(cluster.nodes[node_id]) for node_id in range(1, 18)
         }
 
         historicos_ok = same_histories(cluster.nodes.values()) and all(
