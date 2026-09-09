@@ -47,6 +47,14 @@ emitiram simultaneamente.
     \end{tabular}
 \end{table}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_ordem_total_3_nos.png}
+    \caption{Execução do teste de ordem total com três nós}
+    \label{fig:teste-ordem-3-nos}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
 A saída resumida do cenário de 15 nós foi:
 
 \begin{lstlisting}[numbers=none]
@@ -60,11 +68,48 @@ comparacao dos 15 historicos: IDENTICOS
 buffers restantes: [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []]
 \end{lstlisting}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_ordem_total_15_nos.png}
+    \caption{Execução do teste de ordem total com quinze nós}
+    \label{fig:teste-ordem-15-nos}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
 Os pedidos dos nós 2 e 3 foram emitidos em rápida sucessão por processos
 independentes, mas o líder aceitou o pedido do nó 3 primeiro. Todos os participantes
 observaram a mesma inversão. Isso é uma evidência direta de que a ordem exibida foi
 determinada pela sequência global e não por uma suposição local sobre a ordem de
 emissão.
+
+\subsection{Validação de dependência causal}
+
+Além do cenário com mensagens concorrentes, foi executado um teste controlado para verificar o comportamento do relógio vetorial diante de uma relação de dependência causal. Inicialmente, o nó 1 emitiu a mensagem \texttt{CAUSAL-A}. O testador aguardou até que essa mensagem fosse efetivamente entregue ao nó 2 e, somente após essa entrega, o nó 2 emitiu a mensagem \texttt{CAUSAL-B}. Dessa forma, a emissão de \texttt{CAUSAL-B} ocorreu após a observação de \texttt{CAUSAL-A}, estabelecendo a relação causal
+\[
+A \rightarrow B.
+\]
+
+A mensagem \texttt{CAUSAL-A} foi registrada com sequência global 1 e relógio vetorial
+\[
+[1,0,0],
+\]
+enquanto \texttt{CAUSAL-B} recebeu sequência global 2 e relógio vetorial
+\[
+[1,2,0].
+\]
+O vetor associado a \texttt{CAUSAL-B} incorpora o evento previamente observado no nó 1, evidenciando que o relógio vetorial preservou a informação de causalidade entre os eventos.
+
+Ao final do experimento, os três participantes apresentaram a mesma ordem global, com \texttt{CAUSAL-A} precedendo \texttt{CAUSAL-B}. Assim, o teste confirma tanto a propagação da informação causal pelos relógios vetoriais quanto a compatibilidade dessa relação com a ordem total estabelecida pelo sequenciador.
+
+A Figura~\ref{fig:teste-causal} apresenta a execução do cenário de dependência causal e os relógios vetoriais associados às mensagens.
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\textwidth]{04-figuras/teste_dependencia_causal.png}
+    \caption{Validação experimental da dependência causal entre as mensagens \texttt{CAUSAL-A} e \texttt{CAUSAL-B}.}
+    \label{fig:teste-causal}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
 
 \section{Captura de estado global}\label{sec:teste-snapshot}
 
@@ -110,6 +155,14 @@ historicos globais identicos: SIM
 historico de referencia: [1, 2, 3, 4, 5]
 \end{lstlisting}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_snapshot_estado_global.png}
+    \caption{Execução da captura de estado global com o algoritmo de Chandy--Lamport}
+    \label{fig:teste-snapshot}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
 Esses ensaios demonstram tanto a conclusão do protocolo na escala exigida quanto
 o aspecto essencial de consistência: uma mensagem que cruza o corte não desaparece
 nem é contada como recebida antes de seu envio, pois permanece registrada no
@@ -119,8 +172,7 @@ estado do canal.
 
 A seleção inicial também foi verificada diretamente: com três processos, todos
 identificaram o nó 3 como coordenador; com quinze processos, todos identificaram o
-nó 15. Portanto, a inicialização aplica o mesmo critério de prioridade da eleição
-do Valentão, em vez de fixar o nó 1.
+nó 15. Portanto, a inicialização aplica o mesmo critério de prioridade do algoritmo \textit{Bully}, em vez de fixar o nó 1.
 
 No cenário de falha com três processos, duas mensagens foram entregues nas
 sequências 1 e 2. Em seguida, o coordenador de maior ID, nó 3, foi encerrado
@@ -150,6 +202,14 @@ sobreviventes.
     \end{tabular}
 \end{table}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_reeleicao_lider.png}
+    \caption{Execução da reeleição do coordenador e continuidade da ordem global}
+    \label{fig:teste-reeleicao}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
 Também foi executado um teste controlado de difusão parcial. Um sobrevivente
 possuía $[1,2]$, enquanto o futuro líder possuía apenas $[1]$. A resposta de estado
 permitiu que o novo coordenador recuperasse a mensagem 2 e a retransmitisse antes
@@ -170,6 +230,14 @@ vez no destino e nenhuma vez no emissor. Uma mensagem de grupo enviada como cont
 foi entregue globalmente nos dois processos e não recebeu o rótulo privado. O mesmo
 teste confirmou que mensagens de grupo remotas atualizam o vetor apenas uma vez.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{04-figuras/teste_mensagem_privada.png}
+    \caption{Execução do teste de mensagem privada por unicast}
+    \label{fig:teste-mensagem-privada}
+    \fonte{Elaborado pelos autores (2026).}
+\end{figure}
+
 \section{Limitações}\label{sec:limitacoes}
 
 Além dos resultados anteriores, a versão atual possui as seguintes limitações:
@@ -187,19 +255,9 @@ Além dos resultados anteriores, a versão atual possui as seguintes limitaçõe
     difundida; se detectar conflito ou lacuna na união, não abre o sequenciador.
     A retransmissão percorre todo o histórico conhecido, cujo custo cresce com o
     tempo de execução.
-    \item \textbf{TCP:} o fechamento da conexão delimita cada documento e o
-    receptor acumula blocos até o fim do fluxo, mas não há autenticação,
-    criptografia ou repetição automática após falha de envio.
     \item \textbf{Escalabilidade:} uma difusão requer uma conexão por destinatário
     e é feita sequencialmente pelo líder. O catálogo entregue termina no nó 15, e
     \texttt{start.sh} não valida pedidos acima desse limite.
-    \item \textbf{Portabilidade:} a inicialização automática depende do terminal
-    Konsole e de utilitários típicos de Linux. A execução manual continua possível
-    em outros ambientes compatíveis com Python.
-    \item \textbf{Testes:} a suíte versionada cobre FIFO, snapshot, mensagem
-    privada e recuperação da ordem, mas os ensaios em maior escala ainda são
-    executados externamente. Também não foram realizados ensaios entre máquinas
-    físicas, sob perda de conexão intermitente ou com mensagens de grande volume.
 \end{itemize}
 
 \section{Síntese dos requisitos}

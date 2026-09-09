@@ -29,7 +29,7 @@ abordagem B do roteiro.
 \section{Ordem total por sequenciador}\label{sec:ordem-total}
 
 O líder inicial é determinado como o maior ID ativo do catálogo. Dessa forma, o
-critério do algoritmo do Valentão também é aplicado na inicialização, sem depender
+critério do algoritmo \textit{Bully} também é aplicado na inicialização, sem depender
 de uma primeira falha para selecionar o participante de maior prioridade. Uma
 mensagem de grupo percorre as etapas a seguir:
 
@@ -98,7 +98,7 @@ batimento do coordenador. O limiar base é de dez segundos e a inativação ou
 eleição ocorre após três verificações vencidas. Quando o líder considera um
 participante inativo, difunde uma atualização da lista.
 
-A eleição segue o algoritmo do Valentão, descrito resumidamente na Figura \ref{fig:fluxo-eleicao}. Seu passo a passo na implementação é:
+A eleição segue o algoritmo \textit{Bully}, descrito resumidamente na Figura \ref{fig:fluxo-eleicao}. Seu passo a passo na implementação é:
 
 \begin{figure}[H]
     \centering
@@ -126,7 +126,7 @@ A eleição segue o algoritmo do Valentão, descrito resumidamente na Figura \re
 \end{enumerate}
 
 Consequentemente, o maior ID ativo alcançado vence, conforme a propriedade do
-algoritmo do Valentão \cite{tanenbaum2007}. A implementação simplifica o protocolo:
+algoritmo \textit{Bully} \cite{tanenbaum2007}. A implementação simplifica o protocolo:
 não há mensagem \texttt{OK} separada nem timeout específico para aguardar o anúncio;
 o sucesso da conexão de eleição exerce o papel da confirmação.
 

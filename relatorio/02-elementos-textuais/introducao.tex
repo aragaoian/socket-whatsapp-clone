@@ -24,7 +24,7 @@ Para estabelecer uma sequência única das mensagens de grupo, foi escolhida a
 abordagem de \textbf{sequenciador}. Um coordenador atribui números globais
 monotônicos e redifunde as mensagens; relógios vetoriais permanecem anexados aos
 eventos para registrar a evolução causal. Como o coordenador é um ponto crítico,
-o protótipo emprega \textit{health-checks} e o algoritmo do Valentão para eleição de
+o protótipo emprega \textit{health-checks} e o algoritmo \textit{Bully} para eleição de
 um substituto. Para o estado global, emprega-se \textit{Chandy-Lamport} sobre canais
 lógicos FIFO identificados e numerados na camada de aplicação. Essa opção permite
 registrar estados locais e mensagens em trânsito sem interromper os participantes.

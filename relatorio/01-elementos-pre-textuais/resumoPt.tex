@@ -13,7 +13,7 @@
     de sequência global e é difundida por unicast a todos os participantes; em
     cada receptor, um buffer somente libera sequências contíguas. Também foram
     implementados detecção de falhas por batimentos periódicos, reeleição do
-    coordenador pelo algoritmo do Valentão e captura de estado global pelo algoritmo
+    coordenador pelo algoritmo \textit{Bully} e captura de estado global pelo algoritmo
     de Chandy--Lamport. A captura registra estados locais e mensagens em trânsito
     sem interromper o chat. Ensaios automatizados com sockets reais em uma única
     máquina, envolvendo 3, 8 e 15 processos independentes, confirmaram que
