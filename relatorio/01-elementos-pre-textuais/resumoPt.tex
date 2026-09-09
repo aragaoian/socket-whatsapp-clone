@@ -6,24 +6,27 @@
 \thispagestyle{empty}
 
     \noindent Este relatório apresenta o desenvolvimento de um chat distribuído
-    executado por processos independentes e comunicado exclusivamente por sockets
-    TCP. A solução permite configurar até 15 nós a partir de um catálogo estático
-    de endereços, mantém relógios vetoriais e utiliza um nó coordenador como
-    sequenciador das mensagens de grupo. Cada mensagem de grupo recebe um número
-    de sequência global e é difundida por unicast a todos os participantes; em
-    cada receptor, um buffer somente libera sequências contíguas. Também foram
-    implementados detecção de falhas por batimentos periódicos, reeleição do
-    coordenador pelo algoritmo \textit{Bully} e captura de estado global pelo algoritmo
-    de Chandy--Lamport. A captura registra estados locais e mensagens em trânsito
-    sem interromper o chat. Ensaios automatizados com sockets reais em uma única
-    máquina, envolvendo 3, 8 e 15 processos independentes, confirmaram que
-    todos os nós ativos entregaram as mensagens de grupo na mesma ordem e sem itens
-    remanescentes no buffer. O snapshot foi concluído com 3 e 15 processos, e um
-    teste controlado confirmou o registro de uma mensagem em trânsito. Em um ensaio
-    de falha, o nó 2 foi eleito após a queda do coordenador de maior ID, recuperou
-    as sequências 1 e 2 a partir dos sobreviventes e entregou a mensagem seguinte
-    como sequência 3. Dessa forma, a ordem total permaneceu idêntica após a
-    reeleição.
+    formado por processos independentes que se comunicam exclusivamente por
+    sockets TCP. A aplicação oferece mensagens privadas e comunicação de grupo,
+    mantém relógios vetoriais para representar relações causais e emprega um
+    coordenador como sequenciador da ordem total. O maior ID ativo assume a
+    coordenação inicial. Cada mensagem de grupo recebe uma sequência global e é
+    difundida por unicast aos participantes; em cada receptor, um buffer libera
+    somente sequências contíguas. A solução também implementa detecção de falhas
+    por batimentos periódicos, eleição pelo algoritmo \textit{Bully}, recuperação
+    do histórico e do contador do sequenciador após a troca de líder e captura de
+    estado global pelo algoritmo de Chandy--Lamport sobre canais lógicos FIFO. Os
+    ensaios com 3, 8, 15 e 17 processos confirmaram históricos globais idênticos e
+    buffers vazios. No cenário com 17 nós, todos os participantes entregaram as
+    três mensagens na ordem $[1,2,3]$, utilizaram vetores de 17 posições e
+    reconheceram o nó 17 como líder inicial. Um teste controlado demonstrou que o
+    relógio vetorial preserva uma dependência causal entre duas mensagens. A
+    captura de estado foi concluída com 3 e 15 processos e registrou corretamente
+    uma mensagem em trânsito. Por fim, após a queda do coordenador em um cenário
+    com três nós, o maior ID sobrevivente recuperou o prefixo global $[1,2]$ e
+    entregou o pedido pendente como sequência 3. Os resultados demonstram a
+    manutenção da causalidade observável, da ordem total e da continuidade do
+    serviço nos cenários avaliados.
 
     \vspace*{0.5cm}\noindent\textbf{Palavras-chave}: sistemas distribuídos;
     comunicação de grupo; ordem total; relógio vetorial; snapshot distribuído.
