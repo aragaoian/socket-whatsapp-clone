@@ -1,0 +1,161 @@
+\chapter{AVALIAÇÃO EXPERIMENTAL}\label{chap:avaliacao}
+
+\section{Metodologia}
+
+Foram executados ensaios temporários sobre o código do repositório, sem modificar
+a implementação. Cada nó foi iniciado pelo sistema operacional como um processo
+separado, usando o ponto de entrada \texttt{lauch\_node.py}, o catálogo original e
+as portas 5001 a 5015 em \texttt{127.0.0.1}. Os comandos foram escritos na entrada
+padrão dos processos em rápida sucessão e percorreram sockets TCP reais. Depois
+das entregas, o comando \texttt{global} foi solicitado em todos os terminais; as
+tuplas (sequência global, origem, texto) foram extraídas das saídas e comparadas.
+Todos os processos encerraram normalmente.
+
+Não há arquivos-fonte de testes no diretório \texttt{tests} da versão avaliada;
+foi encontrado apenas um arquivo \texttt{.pyc} antigo. O comando
+\texttt{uv run pytest} também não pôde ser usado porque \texttt{pytest} não está
+declarado nas dependências. Por esse motivo, os resultados desta seção provêm do
+ensaio externo descrito acima.
+
+\section{Ordem global com 3, 8 e 15 nós}
+
+Os três cenários foram concluídos com todos os históricos idênticos e todos os
+buffers vazios, conforme a Tabela~\ref{tab:testes-ordem}. No ensaio com três nós,
+cada participante emitiu uma mensagem. Nos ensaios com oito e quinze, cinco nós
+emitiram simultaneamente.
+
+\begin{table}[H]
+    \centering
+    \caption{Resultados da difusão e entrega ordenada}
+    \label{tab:testes-ordem}
+    \begin{tabular}{ccccc}
+        \toprule
+        \textbf{Nós} & \textbf{Envios} & \textbf{Todos receberam} &
+        \textbf{Históricos idênticos} & \textbf{Buffers vazios} \\
+        \midrule
+        3  & 3 & Sim & Sim & Sim \\
+        8  & 5 & Sim & Sim & Sim \\
+        15 & 5 & Sim & Sim & Sim \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+A saída resumida do cenário de 15 nós foi:
+
+\begin{lstlisting}[numbers=none]
+GLOBAL 1 | Node 1 | processo-1
+GLOBAL 2 | Node 3 | processo-3
+GLOBAL 3 | Node 2 | processo-2
+GLOBAL 4 | Node 4 | processo-4
+GLOBAL 5 | Node 5 | processo-5
+
+comparacao dos 15 historicos: IDENTICOS
+buffers restantes: [[], [], [], [], [], [], [], [], [], [], [], [], [], [], []]
+\end{lstlisting}
+
+Os pedidos dos nós 2 e 3 foram emitidos em rápida sucessão por processos
+independentes, mas o líder aceitou o pedido do nó 3 primeiro. Todos os participantes
+observaram a mesma inversão. Isso é uma evidência direta de que a ordem exibida foi
+determinada pela sequência global e não por uma suposição local sobre a ordem de
+emissão.
+
+\section{Falha e reeleição}
+
+Em um cenário adicional com três nós, duas mensagens foram entregues nas
+sequências 1 e 2. Em seguida, o nó 1 foi encerrado e o nó 2 iniciou a eleição. Os
+nós 2 e 3 convergiram para o nó 3 como novo líder, demonstrando a seleção do maior
+ID ativo. Contudo, a primeira mensagem sequenciada pelo novo líder recebeu
+novamente o número 1. Como os receptores sobreviventes já aguardavam a sequência
+3, descartaram a mensagem como antiga. O resultado está resumido na
+Tabela~\ref{tab:teste-eleicao}.
+
+\begin{table}[H]
+    \centering
+    \caption{Ensaio de troca do sequenciador}
+    \label{tab:teste-eleicao}
+    \begin{tabular}{p{8.0cm} p{5.0cm}}
+        \toprule
+        \textbf{Observação} & \textbf{Resultado} \\
+        \midrule
+        Histórico antes da falha & $[1,2]$ em todos os nós \\
+        Líder eleito entre os nós 2 e 3 & Nó 3 \\
+        Primeira sequência criada pelo novo líder & 1 \\
+        Próxima sequência esperada nos sobreviventes & 3 \\
+        Mensagem posterior entregue & Não \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Assim, a eleição isoladamente funciona no cenário ensaiado, mas a recuperação do
+serviço de ordem total não está completa. O novo coordenador precisa recuperar o
+maior número estável, por exemplo consultando um quórum de históricos antes de
+voltar a sequenciar.
+
+\section{Mensagem privada}
+
+O envio privado do nó 1 para o nó 2 abriu a conexão e retornou sucesso no emissor.
+Entretanto, o vetor do receptor permaneceu $[0,0,0]$ e nenhum histórico de recepção
+foi produzido. A causa, confirmada pela inspeção de \texttt{handle\_message}, é a
+ausência de um ramo para \texttt{PRIVATE\_MESSAGE}. Há ainda uma mensagem de log
+rotulada como privada dentro do ramo de mensagem de grupo ordenada. Portanto, o
+requisito funcional de conversa privada está apenas parcialmente construído.
+
+\section{Limitações}\label{sec:limitacoes}
+
+Além dos resultados anteriores, a versão atual possui as seguintes limitações:
+
+\begin{itemize}
+    \item \textbf{Estado global:} não há comando, marcador nem agregação de
+    snapshot; o requisito correspondente permanece pendente.
+    \item \textbf{Troca de líder:} contador e histórico do sequenciador não são
+    transferidos, interrompendo novas entregas após uma falha que ocorra depois de
+    qualquer mensagem já entregue.
+    \item \textbf{Mensagem privada:} o emissor envia o documento, mas o receptor
+    não trata seu tipo.
+    \item \textbf{Relógio vetorial:} em receptores remotos, uma mensagem de grupo
+    ordenada atualiza o vetor durante a entrega e novamente no despachante. O líder
+    local atualiza apenas uma vez, produzindo políticas de incremento diferentes.
+    \item \textbf{Líder inicial:} o nó 1 é fixado como coordenador inicial, mesmo
+    que o algoritmo do Valentão normalmente eleja o maior ID ativo.
+    \item \textbf{TCP:} cada conexão é lida com uma única chamada de até 65.536
+    bytes, sem enquadramento ou laço para remontar documentos maiores. Também não
+    há autenticação nem criptografia.
+    \item \textbf{Escalabilidade:} uma difusão requer uma conexão por destinatário
+    e é feita sequencialmente pelo líder. O catálogo entregue termina no nó 15, e
+    \texttt{start.sh} não valida pedidos acima desse limite.
+    \item \textbf{Portabilidade:} a inicialização automática depende do terminal
+    Konsole e de utilitários típicos de Linux. A execução manual continua possível
+    em outros ambientes compatíveis com Python.
+    \item \textbf{Testes:} não existe suíte reproduzível em código-fonte no estado
+    atual do repositório, nem foram realizados ensaios entre máquinas físicas,
+    sob perda de conexão ou com mensagens de grande volume.
+\end{itemize}
+
+\section{Síntese dos requisitos}
+
+A Tabela~\ref{tab:requisitos} resume a cobertura verificada. ``Parcial'' indica
+que existe uma parte observável do requisito, mas ao menos um cenário obrigatório
+ainda falha.
+
+\begin{table}[H]
+    \centering
+    \caption{Cobertura dos requisitos funcionais}
+    \label{tab:requisitos}
+    \begin{tabular}{c p{3.3cm} p{8.7cm}}
+        \toprule
+        \textbf{Req.} & \textbf{Situação} & \textbf{Evidência} \\
+        \midrule
+        R1 & Atendido & Difusão TCP entregue a todos em 3, 8 e 15 nós. \\
+        R2 & Parcial & Chat de grupo funciona; recepção privada está ausente. \\
+        R3 & Atendido & Inicialização e entrega verificadas com 3, 8 e 15 processos. \\
+        R4 & Parcial & Históricos são idênticos no caminho normal; troca de líder
+        perde continuidade da sequência. \\
+        R5 & Parcial & Terminal oferece envio, ordens e estado, mas o unicast
+        privado não é processado no destino. \\
+        R6 & Não atendido & Não há captura nem exibição de estado global. \\
+        R7 & Atendido & Itens documentais do roteiro são cobertos neste relatório. \\
+        R8 & Parcial & O maior ID ativo é eleito, mas o novo líder não recupera a
+        sequência anterior. \\
+        \bottomrule
+    \end{tabular}
+\end{table}

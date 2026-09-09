@@ -1,0 +1,146 @@
+\chapter{ALGORITMOS DISTRIBUÍDOS}\label{chap:algoritmos}
+
+\section{Relógio vetorial}
+
+Cada nó mantém um vetor $V$ de tamanho $N$. A posição $V[i]$ representa o
+conhecimento local sobre os eventos do nó $i$. Ao criar uma mensagem local no nó
+$i$, a implementação executa
+
+\begin{equation}
+    V[i] \leftarrow V[i] + 1
+\end{equation}
+
+e anexa uma cópia do vetor à mensagem. Ao processar um vetor recebido $V_m$, o nó
+calcula, componente a componente,
+
+\begin{equation}
+    V[j] \leftarrow \max(V[j], V_m[j]), \quad 1 \leq j \leq N,
+\end{equation}
+
+e depois incrementa sua própria posição. Essa política é compatível com a
+interpretação de recepção como evento local. O uso de vetores permite registrar
+mais informação causal que um relógio escalar \cite{coulouris2011}.
+
+Na abordagem adotada, o vetor não decide a ordem total. Ele acompanha pedidos e
+mensagens ordenadas para permitir inspeção causal, enquanto o número fornecido
+pelo sequenciador é a autoridade para entrega. Portanto, a solução corresponde à
+abordagem B do roteiro.
+
+\section{Ordem total por sequenciador}\label{sec:ordem-total}
+
+O líder inicial é configurado como o nó 1. Uma mensagem de grupo percorre as
+etapas a seguir:
+
+\begin{enumerate}
+    \item O emissor incrementa sua posição no relógio vetorial, incrementa o
+    contador de ordem local e armazena o envio no histórico local.
+    \item Se o emissor não é o líder, abre uma conexão TCP com o coordenador e
+    envia um \texttt{GROUP\_MESSAGE\_REQUEST}. Se é o líder, chama diretamente a
+    rotina de sequenciamento.
+    \item O líder protege \texttt{next\_global\_sequence} com um lock, atribui seu
+    valor à mensagem e incrementa o contador.
+    \item A mensagem passa a ter o tipo \texttt{ORDERED\_GROUP\_MESSAGE} e é
+    enviada individualmente a todos os nós. A cópia do próprio líder é tratada
+    localmente.
+    \item Cada receptor indexa a mensagem por sua sequência no buffer. Sequências
+    menores que a próxima esperada são descartadas como duplicatas antigas.
+    \item Enquanto a próxima sequência esperada estiver presente, o receptor a
+    remove do buffer, atualiza o relógio vetorial, acrescenta a mensagem ao
+    histórico global e avança a sequência esperada.
+\end{enumerate}
+
+O buffer é necessário porque conexões TCP diferentes não estabelecem ordem entre
+si. Assim, mesmo que a mensagem 4 chegue antes da 3, ela permanece retida até que
+a lacuna seja preenchida. Como todos recebem os mesmos números e aplicam a mesma
+regra de liberação, os históricos convergem para a mesma ordem.
+
+\subsection{Exemplo numérico com mensagens concorrentes}
+
+Considere três nós com vetores inicialmente iguais a $[0,0,0]$. O nó 2 cria a
+mensagem A e a carimba com $[0,1,0]$; concorrentemente, o nó 3 cria B com
+$[0,0,1]$. Nenhum vetor é componente a componente menor que o outro, portanto A e
+B são concorrentes. Suponha que o líder receba B antes de A. Ele atribui os números
+globais mostrados na Tabela~\ref{tab:exemplo-ordem}.
+
+\begin{table}[H]
+    \centering
+    \caption{Sequenciamento de duas mensagens concorrentes}
+    \label{tab:exemplo-ordem}
+    \begin{tabular}{ccccc}
+        \toprule
+        \textbf{Mensagem} & \textbf{Origem} & \textbf{Vetor} &
+        \textbf{Ordem local} & \textbf{Ordem global} \\
+        \midrule
+        B & 3 & $[0,0,1]$ & 1 & 1 \\
+        A & 2 & $[0,1,0]$ & 1 & 2 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Se A, de sequência 2, chegar primeiro ao nó 1, ela aguarda no buffer. Quando B
+chega com sequência 1, o nó entrega B e, em seguida, A. O mesmo ocorre no nó 2:
+
+\begin{equation}
+    H_1 = H_2 = \langle (1,B), (2,A) \rangle.
+\end{equation}
+
+O exemplo mostra que o vetor identifica a concorrência, mas é a decisão do
+sequenciador que transforma as mensagens em uma ordem total.
+
+\section{Monitoramento e eleição de líder}\label{sec:eleicao}
+
+O coordenador envia uma mensagem \texttt{HEARTBEAT} a cada nó ativo a cada cinco
+segundos. O receptor responde com \texttt{HEARTBEAT\_ACK}. O líder registra o
+instante da última confirmação, enquanto os seguidores registram o último
+batimento do coordenador. O limiar base é de dez segundos e a inativação ou
+eleição ocorre após três verificações vencidas. Quando o líder considera um
+participante inativo, difunde uma atualização da lista.
+
+A eleição segue o algoritmo do Valentão. Seu passo a passo na implementação é:
+
+\begin{enumerate}
+    \item O nó que detecta a indisponibilidade marca o líder anterior como inativo
+    e envia \texttt{ELECTION} a cada nó ativo de ID maior.
+    \item Uma conexão bem-sucedida é tratada como indicação de que o nó superior
+    continuará a eleição. Ao receber a solicitação, todo nó de ID superior inicia
+    sua própria rodada.
+    \item Um participante sem nó superior acessível declara-se coordenador.
+    \item O vencedor difunde \texttt{COORDINATOR}; os receptores atualizam
+    \texttt{leader\_id} e encerram o estado local de eleição.
+\end{enumerate}
+
+Consequentemente, o maior ID ativo alcançado vence, conforme a propriedade do
+algoritmo do Valentão \cite{tanenbaum2007}. A implementação simplifica o protocolo:
+não há mensagem \texttt{OK} separada nem timeout específico para aguardar o anúncio;
+o sucesso da conexão de eleição exerce o papel da confirmação.
+
+\section{Estado global: escolha e situação atual}\label{sec:estado-global}
+
+Um estado global reúne os estados locais e as mensagens em trânsito de modo
+compatível com a causalidade. O algoritmo de Chandy--Lamport é uma escolha adequada
+porque não exige relógio físico sincronizado nem a interrupção da aplicação; por
+meio de marcadores, ele registra um corte consistente da execução
+\cite{chandy1985}.
+
+Para este projeto, a implementação planejada deveria seguir estas etapas:
+
+\begin{enumerate}
+    \item O iniciador registra relógio vetorial, líder, histórico local, histórico
+    global, próxima sequência esperada e estado dos participantes; depois envia um
+    marcador a todos os canais de saída.
+    \item Ao receber o primeiro marcador, cada nó registra o próprio estado, marca
+    o canal de chegada como vazio e encaminha marcadores aos demais nós.
+    \item Até receber o marcador de cada origem, o nó registra como estado daquele
+    canal as mensagens de aplicação recebidas após seu estado local.
+    \item Cada nó envia o fragmento concluído ao iniciador, que agrega e exibe o
+    snapshot.
+\end{enumerate}
+
+Entretanto, a versão analisada não declara mensagens de marcador, não mantém
+sessões de snapshot e não oferece comando para iniciar ou exibir a captura. Logo,
+o requisito de estado global ainda \textbf{não está implementado}. Além disso, o
+transporte abre uma nova conexão TCP por documento. Embora TCP seja FIFO dentro de
+uma conexão, conexões distintas entre o mesmo par não formam automaticamente um
+canal FIFO único. Uma implementação correta de Chandy--Lamport deve manter
+conexões persistentes por par ou numerar mensagens e marcadores por canal antes de
+aplicar o protocolo.
